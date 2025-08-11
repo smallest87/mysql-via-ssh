@@ -12,7 +12,21 @@ class MySQLSSHUI {
     init() {
         this.setupEventListeners();
         this.initializeComponents();
+        this.setupActiveNavigation();
         console.log('MySQL SSH UI initialized');
+    }
+
+    setupActiveNavigation() {
+        // Mark active navigation item
+        const currentPath = window.location.pathname;
+        const navLinks = document.querySelectorAll('.navbar-nav .nav-link');
+        
+        navLinks.forEach(link => {
+            const href = link.getAttribute('href');
+            if (href === currentPath || (currentPath === '/' && href === '/')) {
+                link.classList.add('active');
+            }
+        });
     }
 
     setupEventListeners() {
@@ -265,24 +279,35 @@ class MySQLSSHUI {
         
         if (!data || data.length === 0) {
             resultsContainer.innerHTML = `
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle me-2"></i>
-                    ${message || 'Query executed successfully with no results.'}
+                <div class="results-info">
+                    <span><i class="fas fa-info-circle me-2"></i>${message || 'Query executed successfully with no results.'}</span>
                 </div>
             `;
             return;
         }
 
-        // Create table
+        // Results info bar
         let html = `
-            <div class="alert alert-success">
-                <i class="fas fa-check-circle me-2"></i>
-                ${message || `Query returned ${data.length} row(s)`}
+            <div class="results-info">
+                <div>
+                    <i class="fas fa-check-circle me-2 text-success"></i>
+                    <span class="row-count">${data.length}</span> row(s) returned
+                </div>
+                <div class="export-options">
+                    <button class="btn btn-outline-secondary btn-sm" onclick="app.exportToCSV()" title="Export to CSV">
+                        <i class="fas fa-download"></i> CSV
+                    </button>
+                </div>
             </div>
-            <div class="table-responsive">
-                <table class="table table-striped table-hover">
-                    <thead>
-                        <tr>
+        `;
+
+        // Create compact table
+        html += `
+            <div class="query-results">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
         `;
 
         // Table headers
@@ -292,18 +317,86 @@ class MySQLSSHUI {
         });
         html += '</tr></thead><tbody>';
 
-        // Table rows
-        data.forEach(row => {
+        // Table rows with compact data
+        data.forEach((row, rowIndex) => {
             html += '<tr>';
             headers.forEach(header => {
                 const value = row[header];
-                html += `<td>${value !== null ? value : '<span class="text-muted">NULL</span>'}</td>`;
+                let displayValue = '';
+                
+                if (value === null || value === undefined) {
+                    displayValue = '<span class="text-muted font-italic">NULL</span>';
+                } else {
+                    const strValue = String(value);
+                    if (strValue.length > 50) {
+                        displayValue = `<span class="expandable" onclick="app.toggleCellExpansion(this)" title="Click to expand">${strValue.substring(0, 47)}</span>`;
+                    } else {
+                        displayValue = strValue;
+                    }
+                }
+                
+                html += `<td data-full-value="${value}">${displayValue}</td>`;
             });
             html += '</tr>';
         });
 
-        html += '</tbody></table></div>';
+        html += '</tbody></table></div></div>';
         resultsContainer.innerHTML = html;
+        
+        // Store data for export
+        this.currentResultData = data;
+    }
+
+    toggleCellExpansion(element) {
+        const cell = element.parentElement;
+        const fullValue = cell.getAttribute('data-full-value');
+        
+        if (element.classList.contains('expanded')) {
+            // Collapse
+            element.classList.remove('expanded');
+            element.innerHTML = fullValue.substring(0, 47);
+            cell.classList.remove('expanded');
+        } else {
+            // Expand
+            element.classList.add('expanded');
+            element.innerHTML = fullValue;
+            cell.classList.add('expanded');
+        }
+    }
+
+    exportToCSV() {
+        if (!this.currentResultData || this.currentResultData.length === 0) {
+            alert('No data to export');
+            return;
+        }
+
+        const headers = Object.keys(this.currentResultData[0]);
+        let csvContent = headers.join(',') + '\n';
+
+        this.currentResultData.forEach(row => {
+            const values = headers.map(header => {
+                const value = row[header];
+                if (value === null || value === undefined) return '';
+                // Escape commas and quotes for CSV
+                const strValue = String(value);
+                if (strValue.includes(',') || strValue.includes('"') || strValue.includes('\n')) {
+                    return '"' + strValue.replace(/"/g, '""') + '"';
+                }
+                return strValue;
+            });
+            csvContent += values.join(',') + '\n';
+        });
+
+        // Download CSV file
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `query_results_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 
     checkConnectionStatus() {

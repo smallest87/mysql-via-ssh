@@ -16,33 +16,37 @@
 </head>
 <body>
     <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary py-2">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('index') }}">
+            <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">
                 <i class="fas fa-database me-2"></i>
-                MySQL SSH Connection UI
+                <span class="d-none d-md-inline">MySQL SSH</span>
+                <span class="d-md-none">MySQL</span>
             </a>
             
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <button class="navbar-toggler navbar-toggler-sm" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('index') }}">
-                            <i class="fas fa-home me-1"></i>Home
+                        <a class="nav-link px-2" href="{{ url_for('index') }}">
+                            <i class="fas fa-home"></i>
+                            <span class="d-lg-inline ms-1">Home</span>
                         </a>
                     </li>
                     {% if session.current_connection %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('dashboard') }}">
-                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                        <a class="nav-link px-2" href="{{ url_for('dashboard') }}">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <span class="d-lg-inline ms-1">Dashboard</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('query') }}">
-                            <i class="fas fa-code me-1"></i>Query
+                        <a class="nav-link px-2" href="{{ url_for('query') }}">
+                            <i class="fas fa-code"></i>
+                            <span class="d-lg-inline ms-1">Query</span>
                         </a>
                     </li>
                     {% endif %}
@@ -50,32 +54,43 @@
                 
                 <ul class="navbar-nav">
                     {% if session.current_connection %}
-                    <li class="nav-item">
-                        <span class="navbar-text me-3">
-                            <i class="fas fa-circle text-success me-1"></i>
-                            Connected
+                    <li class="nav-item d-flex align-items-center">
+                        <span class="badge bg-success me-2">
+                            <i class="fas fa-plug me-1"></i>Connected
+                        </span>
+                        <a class="nav-link px-2 text-warning" href="{{ url_for('disconnect') }}" title="Disconnect">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span class="d-none d-xl-inline ms-1">Disconnect</span>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="nav-item d-flex align-items-center">
+                        <span class="badge bg-secondary me-2">
+                            <i class="fas fa-unlink me-1"></i>Disconnected
                         </span>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('disconnect') }}">
-                            <i class="fas fa-sign-out-alt me-1"></i>Disconnect
-                        </a>
-                    </li>
                     {% endif %}
+                    
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-info-circle me-1"></i>About
+                        <a class="nav-link dropdown-toggle px-2" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-info-circle"></i>
+                            <span class="d-none d-xl-inline ms-1">About</span>
                         </a>
-                        <ul class="dropdown-menu">
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <h6 class="dropdown-header">
+                                    <i class="fas fa-user me-1"></i>Julian Sukrisna
+                                </h6>
+                            </li>
                             <li><a class="dropdown-item" href="https://github.com/smallest87/mysql-ssh-connection" target="_blank">
-                                <i class="fab fa-github me-1"></i>GitHub Repository
+                                <i class="fab fa-github me-2"></i>GitHub Repository
                             </a></li>
                             <li><a class="dropdown-item" href="https://github.com/smallest87" target="_blank">
-                                <i class="fas fa-user me-1"></i>Author: Julian Sukrisna
+                                <i class="fas fa-code me-2"></i>More Projects
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="https://github.com/smallest87/mysql-ssh-connection/blob/main/SUPPORT.md" target="_blank">
-                                <i class="fas fa-heart me-1"></i>Support Project
+                            <li><a class="dropdown-item text-danger" href="https://github.com/smallest87/mysql-ssh-connection/blob/main/SUPPORT.md" target="_blank">
+                                <i class="fas fa-heart me-2"></i>Support Project
                             </a></li>
                         </ul>
                     </li>

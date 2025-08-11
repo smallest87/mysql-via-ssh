@@ -98,7 +98,7 @@ class MySQLSSHConnection:
     
     def execute_query(self, query, params=None):
         """
-        Eksekusi query SQL
+        Eksekusi query SQL dengan automatic reconnection
         
         Args:
             query (str): Query SQL
@@ -110,23 +110,64 @@ class MySQLSSHConnection:
         if not self.connection:
             logger.error("Tidak ada koneksi aktif")
             return None
-            
+        
+        # Coba reconnect jika koneksi terputus
+        max_retries = 2
+        for attempt in range(max_retries):
+            try:
+                # Test koneksi dengan ping
+                self.connection.ping(reconnect=True)
+                
+                with self.connection.cursor() as cursor:
+                    cursor.execute(query, params)
+                    # Check if query returns results (SELECT, SHOW, DESCRIBE, EXPLAIN, etc.)
+                    query_type = query.strip().upper()
+                    if any(query_type.startswith(cmd) for cmd in ['SELECT', 'SHOW', 'DESCRIBE', 'DESC', 'EXPLAIN']):
+                        result = cursor.fetchall()
+                        return result
+                    else:
+                        self.connection.commit()
+                        return cursor.rowcount
+                        
+            except Exception as e:
+                logger.error(f"Error saat eksekusi query (attempt {attempt + 1}): {str(e)}")
+                
+                # Jika koneksi terputus, coba reconnect
+                if attempt < max_retries - 1:
+                    logger.info("Mencoba reconnect...")
+                    if self._reconnect():
+                        continue
+                
+                # Jika semua attempt gagal
+                if self.connection:
+                    try:
+                        self.connection.rollback()
+                    except:
+                        pass
+                return None
+    
+    def _reconnect(self):
+        """Helper method untuk reconnect"""
         try:
-            with self.connection.cursor() as cursor:
-                cursor.execute(query, params)
-                # Check if query returns results (SELECT, SHOW, DESCRIBE, EXPLAIN, etc.)
-                query_type = query.strip().upper()
-                if any(query_type.startswith(cmd) for cmd in ['SELECT', 'SHOW', 'DESCRIBE', 'DESC', 'EXPLAIN']):
-                    result = cursor.fetchall()
-                    return result
-                else:
-                    self.connection.commit()
-                    return cursor.rowcount
-                    
+            if self.connection:
+                self.connection.close()
+            
+            # Reconnect ke MySQL
+            self.connection = pymysql.connect(
+                host='127.0.0.1',
+                port=self.tunnel.local_bind_port,
+                user=self.mysql_config['username'],
+                password=self.mysql_config['password'],
+                database=self.mysql_config['database'],
+                charset='utf8mb4',
+                cursorclass=pymysql.cursors.DictCursor,
+                autocommit=False
+            )
+            logger.info("Reconnect berhasil!")
+            return True
         except Exception as e:
-            logger.error(f"Error saat eksekusi query: {str(e)}")
-            self.connection.rollback()
-            return None
+            logger.error(f"Reconnect gagal: {str(e)}")
+            return False
     
     def close(self):
         """Menutup koneksi MySQL dan SSH tunnel"""

@@ -1,6 +1,135 @@
 /* Custom CSS untuk MySQL SSH Connection UI */
 
-/* Body & Layout */
+/* Navbar Styling */
+.navbar {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    min-height: 56px;
+}
+
+.navbar-brand {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.navbar-nav .nav-link {
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+}
+
+.navbar-nav .nav-link:hover {
+    background-color: rgba(255,255,255,0.1);
+}
+
+.navbar-nav .nav-link.active {
+    background-color: rgba(255,255,255,0.2);
+    font-weight: 500;
+}
+
+/* Connection Status Badge */
+.badge {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.5rem;
+    border-radius: 0.5rem;
+}
+
+/* Dropdown Menu */
+.dropdown-menu {
+    border: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+}
+
+.dropdown-item {
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+}
+
+.dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+
+.dropdown-header {
+    color: #6c757d;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.25rem 0.75rem;
+}
+
+/* Mobile Navbar */
+@media (max-width: 991.98px) {
+    .navbar-collapse {
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .navbar-nav .nav-link {
+        padding: 0.5rem 0;
+    }
+    
+    .navbar-nav {
+        text-align: center;
+    }
+    
+    .badge {
+        margin: 0.5rem 0;
+    }
+}
+
+/* Responsive text hiding */
+@media (max-width: 1199.98px) {
+    .d-xl-inline {
+        display: none !important;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .d-lg-inline {
+        display: none !important;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .d-md-inline {
+        display: none !important;
+    }
+    
+    .d-md-none {
+        display: inline !important;
+    }
+    
+    .navbar-brand {
+        font-size: 1rem;
+    }
+}
+
+/* Connection status animations */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+.badge.bg-success {
+    animation: pulse 2s infinite;
+}
+
+/* Smooth transitions */
+.nav-link, .badge, .dropdown-item {
+    transition: all 0.2s ease-in-out;
+}
+
+/* Navbar brand hover effect */
+.navbar-brand:hover {
+    transform: scale(1.05);
+    transition: transform 0.2s ease;
+}
+
+/* Body and Layout */
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     background-color: #f8f9fa;
@@ -76,21 +205,133 @@ footer {
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 }
 
+/* Query Results - Compact Design */
 .query-results {
-    max-height: 400px;
+    max-height: 500px;
     overflow-y: auto;
-}
-
-/* Table Responsive */
-.table-responsive {
-    border-radius: 0.375rem;
     border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    background-color: #fff;
 }
 
-.table th {
+.query-results .table {
+    margin-bottom: 0;
+    font-size: 0.8rem;
+}
+
+.query-results .table th {
     background-color: #f8f9fa;
     border-bottom: 2px solid #dee2e6;
     font-weight: 600;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #495057;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.query-results .table td {
+    padding: 0.3rem 0.6rem;
+    border-bottom: 1px solid #f8f9fa;
+    vertical-align: middle;
+    font-size: 0.8rem;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.query-results .table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.query-results .table tbody tr:nth-child(even) {
+    background-color: #fdfdfd;
+}
+
+/* Cell content handling */
+.query-results .table td.expandable {
+    cursor: pointer;
+    position: relative;
+}
+
+.query-results .table td.expandable:hover {
+    background-color: #e9ecef !important;
+}
+
+.query-results .table td.expandable::after {
+    content: "...";
+    position: absolute;
+    right: 8px;
+    opacity: 0.5;
+}
+
+.query-results .table td.expanded {
+    white-space: normal;
+    word-wrap: break-word;
+    max-width: none;
+}
+
+.query-results .table td.expanded::after {
+    display: none;
+}
+
+/* Compact Table Responsive */
+.table-responsive {
+    border-radius: 0.5rem;
+    border: 1px solid #dee2e6;
+    background-color: #fff;
+}
+
+.table-responsive::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Results info bar */
+.results-info {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin-bottom: 0.75rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.results-info .row-count {
+    font-weight: 600;
+    color: #495057;
+}
+
+.results-info .export-options {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.results-info .btn-sm {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.4rem;
 }
 
 /* Connection Status */

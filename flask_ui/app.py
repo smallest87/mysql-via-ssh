@@ -112,7 +112,7 @@ class MySQLSSHFlaskApp:
             return render_template('query.html')
         
         @self.app.route('/api/execute_query', methods=['POST'])
-        def execute_query(self):
+        def execute_query():
             """API endpoint untuk menjalankan query"""
             try:
                 connection_id = session.get('current_connection')
@@ -126,19 +126,25 @@ class MySQLSSHFlaskApp:
                 mysql_ssh = self.active_connections[connection_id]['connection']
                 result = mysql_ssh.execute_query(query_text)
                 
+                if result is None:
+                    return jsonify({
+                        'error': 'Query gagal dijalankan. Periksa syntax SQL atau koneksi database.'
+                    }), 500
+                
                 if result is not None:
                     # Convert datetime objects untuk JSON serialization
                     if isinstance(result, list):
                         for row in result:
-                            for key, value in row.items():
-                                if isinstance(value, datetime):
-                                    row[key] = value.isoformat()
+                            if isinstance(row, dict):
+                                for key, value in row.items():
+                                    if isinstance(value, datetime):
+                                        row[key] = value.isoformat()
                     
                     return jsonify({
                         'success': True,
                         'data': result,
-                        'row_count': len(result) if isinstance(result, list) else 0,
-                        'message': f'Query berhasil dijalankan. {len(result) if isinstance(result, list) else 0} baris dikembalikan.'
+                        'row_count': len(result) if isinstance(result, list) else result,
+                        'message': f'Query berhasil dijalankan. {len(result) if isinstance(result, list) else result} baris dikembalikan.'
                     })
                 else:
                     return jsonify({
@@ -150,7 +156,7 @@ class MySQLSSHFlaskApp:
                     
             except Exception as e:
                 return jsonify({
-                    'error': str(e),
+                    'error': f'Error: {str(e)}',
                     'traceback': traceback.format_exc()
                 }), 500
         
@@ -165,11 +171,14 @@ class MySQLSSHFlaskApp:
                 mysql_ssh = self.active_connections[connection_id]['connection']
                 result = mysql_ssh.execute_query("SHOW DATABASES")
                 
+                if result is None:
+                    return jsonify({'error': 'Gagal mengambil daftar database. Periksa koneksi Anda.'}), 500
+                
                 databases = [row['Database'] for row in result] if result else []
                 return jsonify({'databases': databases})
                 
             except Exception as e:
-                return jsonify({'error': str(e)}), 500
+                return jsonify({'error': f'Error: {str(e)}'}), 500
         
         @self.app.route('/api/get_tables')
         def get_tables():
@@ -182,8 +191,35 @@ class MySQLSSHFlaskApp:
                 mysql_ssh = self.active_connections[connection_id]['connection']
                 result = mysql_ssh.execute_query("SHOW TABLES")
                 
+                if result is None:
+                    return jsonify({'error': 'Gagal mengambil daftar tabel. Periksa koneksi database Anda.'}), 500
+                
                 tables = [list(row.values())[0] for row in result] if result else []
                 return jsonify({'tables': tables})
+                
+            except Exception as e:
+                return jsonify({'error': f'Error: {str(e)}'}), 500
+        
+        @self.app.route('/api/status')
+        def status():
+            """API untuk mendapatkan status koneksi"""
+            try:
+                connection_id = session.get('current_connection')
+                if not connection_id or connection_id not in self.active_connections:
+                    return jsonify({
+                        'connected': False,
+                        'message': 'Tidak ada koneksi aktif'
+                    })
+                
+                connection_info = self.active_connections[connection_id]
+                return jsonify({
+                    'connected': True,
+                    'connection_id': connection_id,
+                    'ssh_host': connection_info.get('ssh_host', 'Unknown'),
+                    'mysql_host': connection_info.get('mysql_host', 'Unknown'),
+                    'mysql_database': connection_info.get('mysql_database', 'Unknown'),
+                    'connected_at': connection_info.get('connected_at', 'Unknown')
+                })
                 
             except Exception as e:
                 return jsonify({'error': str(e)}), 500
