@@ -23,27 +23,27 @@ This project is developed and maintained by **Julian Sukrisna** as part of **Jav
 **Indonesian Banking:**
 ```
 Account Name: Julian Sukrisna
-Bank: [Your Bank Name]
-Account Number: [Your Account Number]
+Bank: BRI
+Account Number: 6400-0101-6804-531 (SWIFT CODE: BRINIDJA051 - MALANG BRANCH)
 ```
 
 **Digital Wallets (Indonesia):**
 ```
-GoPay: [Your Number]
-OVO: [Your Number]  
-DANA: [Your Number]
+GoPay: 0822-5705-6489
+OVO: 0822-5705-6489
+DANA: 0822-5705-6489
 ```
 
 **International:**
 ```
-PayPal: smallest87@gmail.com
-Ko-fi: https://ko-fi.com/smallest87
+PayPal: smallest87@gmail.com (disabled)
+Ko-fi: https://ko-fi.com/smallest87 (dummy)
 ```
 
 **Cryptocurrency:**
 ```
-Bitcoin (BTC): [Your BTC Address]
-Ethereum (ETH): [Your ETH Address]
+Bitcoin (BTC): (dummy)
+Ethereum (ETH): (dummy)
 ```
 
 ### 🏢 **Corporate Sponsorship**
