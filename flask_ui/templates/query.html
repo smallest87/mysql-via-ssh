@@ -145,6 +145,38 @@
 <script>
 // Setup query templates
 document.addEventListener('DOMContentLoaded', function() {
+    // Check for query to execute from workspace
+    const executeQuery = sessionStorage.getItem('executeQuery');
+    if (executeQuery) {
+        try {
+            const queryData = JSON.parse(executeQuery);
+            const textarea = document.getElementById('queryText');
+            if (textarea && queryData.sql_query) {
+                textarea.value = queryData.sql_query;
+                textarea.focus();
+                
+                // Show notification
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-info alert-dismissible fade show';
+                alertDiv.innerHTML = `
+                    <i class="fas fa-info-circle me-2"></i>
+                    Loaded query: <strong>${queryData.name}</strong>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                
+                // Insert alert before the form
+                const form = document.getElementById('queryForm');
+                form.parentNode.insertBefore(alertDiv, form);
+                
+                // Clear from sessionStorage
+                sessionStorage.removeItem('executeQuery');
+            }
+        } catch (error) {
+            console.error('Error loading query from workspace:', error);
+            sessionStorage.removeItem('executeQuery');
+        }
+    }
+
     const templates = {
         'show-databases': 'SHOW DATABASES;',
         'show-tables': 'SHOW TABLES;',

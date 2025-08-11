@@ -32,6 +32,40 @@
             border: 1px solid #ced4da;
             border-radius: 0.375rem;
             height: 200px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            background: #272822;
+            color: #f8f8f2;
+        }
+        .CodeMirror-gutters {
+            background-color: #3c3836;
+            border-right: 1px solid #665c54;
+        }
+        .CodeMirror-linenumber {
+            color: #928374;
+            padding: 0 8px 0 5px;
+            min-width: 25px;
+            text-align: right;
+            white-space: nowrap;
+        }
+        .CodeMirror-line {
+            padding: 0 4px;
+        }
+        .CodeMirror-cursor {
+            border-left: 2px solid #f8f8f2;
+        }
+        .CodeMirror-focused .CodeMirror-cursor {
+            border-left: 2px solid #f92672;
+        }
+        /* Pastikan CodeMirror ter-render dengan benar di modal */
+        .modal.show .CodeMirror {
+            display: block;
+            visibility: visible;
+        }
+        /* Fix untuk placeholder text */
+        .CodeMirror-placeholder {
+            color: #75715e !important;
+            font-style: italic;
         }
         .query-stats {
             font-size: 0.8rem;
@@ -52,7 +86,7 @@
             </a>
             <div class="navbar-nav ms-auto">
                 <span class="navbar-text me-3">
-                    <i class="fas fa-user me-1"></i>{{ session.admin_username }} ({{ session.admin_role }})
+                    <i class="fas fa-user me-1"></i>{{ admin_username }} ({{ admin_role }})
                 </span>
                 <a class="nav-link" href="/admin/dashboard">
                     <i class="fas fa-home me-1"></i>Dashboard
@@ -256,6 +290,15 @@
                         
                         <div class="mb-3">
                             <label for="sql-query" class="form-label">SQL Query *</label>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small class="text-muted">Enter your SQL query below</small>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" id="show-line-numbers" checked>
+                                    <label class="form-check-label" for="show-line-numbers">
+                                        <small>Line Numbers</small>
+                                    </label>
+                                </div>
+                            </div>
                             <textarea id="sql-query" name="sql_query" required></textarea>
                         </div>
                         
@@ -282,8 +325,12 @@
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/sql-hint.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css">
     
     <script>
         let sqlEditor;
@@ -292,9 +339,73 @@
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('Page loaded, initializing...');
             loadQueries();
             setupSectionNavigation();
+            setupModalEvents();
+            
+            // Create a test query if none exist
+            setTimeout(() => {
+                if (queries.length === 0) {
+                    console.log('No queries found, creating test query...');
+                    createTestQuery();
+                }
+            }, 2000);
         });
+        
+        // Setup modal events untuk CodeMirror
+        function setupModalEvents() {
+            const queryModal = document.getElementById('queryModal');
+            
+            // Event saat modal ditampilkan
+            queryModal.addEventListener('shown.bs.modal', function () {
+                if (!sqlEditor) {
+                    // Initialize CodeMirror if not already created
+                    const textarea = document.getElementById('sql-query');
+                    const showLineNumbers = document.getElementById('show-line-numbers').checked;
+                    
+                    sqlEditor = CodeMirror.fromTextArea(textarea, {
+                        mode: 'text/x-sql',
+                        theme: 'monokai',
+                        lineNumbers: showLineNumbers,
+                        lineWrapping: true,
+                        autoCloseBrackets: true,
+                        matchBrackets: true,
+                        indentWithTabs: true,
+                        smartIndent: true,
+                        viewportMargin: Infinity,
+                        placeholder: "-- Enter your SQL query here\n-- Example: SELECT * FROM users LIMIT 10;",
+                        extraKeys: {
+                            "Ctrl-Space": "autocomplete"
+                        }
+                    });
+                    
+                    // Setup line numbers toggle
+                    document.getElementById('show-line-numbers').addEventListener('change', function() {
+                        if (sqlEditor) {
+                            sqlEditor.setOption('lineNumbers', this.checked);
+                            sqlEditor.refresh();
+                        }
+                    });
+                }
+                
+                if (sqlEditor) {
+                    setTimeout(() => {
+                        sqlEditor.refresh();
+                        sqlEditor.focus();
+                    }, 100);
+                }
+            });
+            
+            // Event saat modal disembunyikan
+            queryModal.addEventListener('hidden.bs.modal', function () {
+                if (sqlEditor) {
+                    sqlEditor.toTextArea();
+                    sqlEditor = null;
+                }
+                resetSaveForm();
+            });
+        }
 
         // Setup section navigation
         function setupSectionNavigation() {
@@ -401,13 +512,13 @@
                         </div>
                         <div class="card-footer bg-transparent">
                             <div class="btn-group w-100">
-                                <button class="btn btn-sm btn-outline-primary" onclick="editQuery(${query.id})">
+                                <button class="btn btn-sm btn-outline-primary" onclick="console.log('Edit button clicked for query:', ${query.id}); editQuery(${query.id})">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                <button class="btn btn-sm btn-outline-success" onclick="executeQuery(${query.id})">
+                                <button class="btn btn-sm btn-outline-success" onclick="console.log('Execute button clicked for query:', ${query.id}); executeQuery(${query.id})">
                                     <i class="fas fa-play"></i>
                                 </button>
-                                <button class="btn btn-sm btn-outline-danger" onclick="deleteQuery(${query.id})">
+                                <button class="btn btn-sm btn-outline-danger" onclick="console.log('Delete button clicked for query:', ${query.id}); deleteQuery(${query.id})">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
@@ -423,40 +534,47 @@
             document.getElementById('query-form').reset();
             document.getElementById('query-id').value = '';
             
-            // Initialize CodeMirror
+            // Initialize CodeMirror with proper cleanup
             if (sqlEditor) {
                 sqlEditor.toTextArea();
+                sqlEditor = null;
             }
             
-            const textarea = document.getElementById('sql-query');
-            sqlEditor = CodeMirror.fromTextArea(textarea, {
-                mode: 'text/x-sql',
-                theme: 'monokai',
-                lineNumbers: true,
-                autoCloseBrackets: true,
-                matchBrackets: true
-            });
-            
-            new bootstrap.Modal(document.getElementById('queryModal')).show();
+            // Show modal first
+            const modal = new bootstrap.Modal(document.getElementById('queryModal'));
+            modal.show();
         }
 
         // Save query
         function saveQuery() {
-            const formData = new FormData(document.getElementById('query-form'));
-            formData.set('sql_query', sqlEditor.getValue());
+            const queryId = document.getElementById('query-id').value;
             
-            const queryId = formData.get('query_id');
+            const queryData = {
+                name: document.getElementById('query-name').value,
+                category: document.getElementById('query-category').value,
+                description: document.getElementById('query-description').value,
+                sql_query: sqlEditor ? sqlEditor.getValue() : document.getElementById('sql-query').value
+            };
+            
+            if (queryId) {
+                queryData.query_id = queryId;
+            }
+            
             const url = queryId ? '/admin/api/workspace/queries/update' : '/admin/api/workspace/queries/save';
             
             fetch(url, {
                 method: 'POST',
-                body: formData
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(queryData)
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     showAlert(data.message, 'success');
-                    bootstrap.Modal.getInstance(document.getElementById('queryModal')).hide();
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('queryModal'));
+                    modal.hide();
                     loadQueries();
                 } else {
                     showAlert(data.message, 'danger');
@@ -522,7 +640,12 @@
             setTimeout(() => {
                 const alert = mainContent.querySelector('.alert');
                 if (alert) {
-                    bootstrap.Alert.getInstance(alert).close();
+                    const alertInstance = bootstrap.Alert.getInstance(alert);
+                    if (alertInstance) {
+                        alertInstance.close();
+                    } else {
+                        alert.remove();
+                    }
                 }
             }, 5000);
         }
@@ -542,17 +665,128 @@
         }
 
         function editQuery(queryId) {
-            // TODO: Implement edit query
+            console.log('editQuery called with ID:', queryId, 'Type:', typeof queryId);
+            console.log('Available queries:', queries);
+            
+            // Convert to number for comparison
+            const numericId = parseInt(queryId);
+            console.log('Converted ID:', numericId);
+            
+            // Find the query in our current data
+            const query = queries.find(q => q.id === numericId);
+            if (!query) {
+                console.error('Query not found with ID:', queryId);
+                console.log('Available query IDs:', queries.map(q => q.id));
+                alert('Query not found');
+                return;
+            }
+            
+            console.log('Found query:', query);
+            
+            // Populate the form with existing data
+            document.getElementById('query-name').value = query.name;
+            document.getElementById('query-category').value = query.category || 'general';
+            document.getElementById('query-description').value = query.description || '';
+            document.getElementById('query-id').value = queryId;
+            
+            // Update modal title
+            document.getElementById('modal-title').textContent = 'Edit Query';
+            
+            // Set SQL query in textarea (will be converted to CodeMirror when modal opens)
+            document.getElementById('sql-query').value = query.sql_query;
+            
+            // Show the modal
+            const modal = new bootstrap.Modal(document.getElementById('queryModal'));
+            modal.show();
         }
 
         function executeQuery(queryId) {
-            // TODO: Implement query execution
+            console.log('executeQuery called with ID:', queryId, 'Type:', typeof queryId);
+            console.log('Available queries:', queries);
+            
+            // Convert to number for comparison  
+            const numericId = parseInt(queryId);
+            console.log('Converted ID:', numericId);
+            
+            // Find the query in our current data
+            const query = queries.find(q => q.id === numericId);
+            if (!query) {
+                console.error('Query not found with ID:', queryId);
+                console.log('Available query IDs:', queries.map(q => q.id));
+                alert('Query not found');
+                return;
+            }
+            
+            console.log('Found query for execution:', query);
+            
+            // Store query in sessionStorage for query page to use
+            sessionStorage.setItem('executeQuery', JSON.stringify({
+                id: query.id,
+                name: query.name,
+                sql_query: query.sql_query
+            }));
+            
+            // Redirect to query page
+            window.location.href = '/query';
+            
+            // Show success message before redirect
+            showAlert(`Loading "${query.name}" for execution...`, 'info');
         }
 
         function deleteQuery(queryId) {
-            if (confirm('Are you sure you want to delete this query?')) {
-                // TODO: Implement delete query
+            console.log('deleteQuery called with ID:', queryId, 'Type:', typeof queryId);
+            console.log('Available queries:', queries);
+            
+            // Convert to number for comparison
+            const numericId = parseInt(queryId);
+            console.log('Converted ID:', numericId);
+            
+            const query = queries.find(q => q.id === numericId);
+            if (!query) {
+                console.error('Query not found with ID:', queryId);
+                console.log('Available query IDs:', queries.map(q => q.id));
+                alert('Query not found');
+                return;
             }
+            
+            console.log('Found query for deletion:', query);
+            
+            if (confirm(`Are you sure you want to delete "${query.name}"?\n\nThis action cannot be undone.`)) {
+                fetch('/admin/api/workspace/queries/delete', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query_id: queryId
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert('Query deleted successfully!', 'success');
+                        loadQueries(); // Reload the queries list
+                    } else {
+                        showAlert('Error deleting query: ' + data.message, 'danger');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('Error deleting query', 'danger');
+                });
+            }
+        }
+
+        function resetSaveForm() {
+            // Clear form data
+            document.getElementById('query-name').value = '';
+            document.getElementById('query-category').value = 'general';
+            document.getElementById('query-description').value = '';
+            document.getElementById('query-id').value = '';
+            document.getElementById('sql-query').value = '';
+            
+            // Reset modal title
+            document.getElementById('modal-title').textContent = 'New Query';
         }
 
         function testQuery() {
@@ -565,6 +799,34 @@
 
         function exportQueries() {
             // TODO: Implement export functionality
+        }
+
+        function createTestQuery() {
+            console.log('Creating test query...');
+            fetch('/admin/api/workspace/queries/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query_name: 'Test Query ' + Date.now(),
+                    sql_query: 'SELECT * FROM users LIMIT 10;',
+                    category: 'testing',
+                    description: 'Auto-generated test query for debugging'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('Test query created successfully');
+                    loadQueries(); // Reload to show the new query
+                } else {
+                    console.error('Failed to create test query:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error creating test query:', error);
+            });
         }
 
         // Filter dropdown handlers

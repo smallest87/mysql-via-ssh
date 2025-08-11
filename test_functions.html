@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test JavaScript Functions</title>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+    <button onclick="testEditQuery()">Test Edit Query</button>
+    <button onclick="testExecuteQuery()">Test Execute Query</button>
+    <button onclick="testDeleteQuery()">Test Delete Query</button>
+    
+    <div id="result"></div>
+
+    <script>
+        // Mock data untuk testing
+        let queries = [
+            {
+                id: 1,
+                name: "Test Query",
+                category: "general",
+                description: "A test query",
+                sql_query: "SELECT * FROM users;"
+            }
+        ];
+
+        function testEditQuery() {
+            try {
+                const query = queries.find(q => q.id === 1);
+                document.getElementById('result').innerHTML = `Found query: ${query.name}`;
+                console.log('Edit query test passed:', query);
+            } catch (error) {
+                document.getElementById('result').innerHTML = `Error: ${error.message}`;
+                console.error('Edit query test failed:', error);
+            }
+        }
+
+        function testExecuteQuery() {
+            try {
+                const query = queries.find(q => q.id === 1);
+                document.getElementById('result').innerHTML = `Execute query: ${query.sql_query}`;
+                console.log('Execute query test passed:', query);
+            } catch (error) {
+                document.getElementById('result').innerHTML = `Error: ${error.message}`;
+                console.error('Execute query test failed:', error);
+            }
+        }
+
+        function testDeleteQuery() {
+            try {
+                const query = queries.find(q => q.id === 1);
+                if (confirm(`Delete ${query.name}?`)) {
+                    document.getElementById('result').innerHTML = `Would delete: ${query.name}`;
+                }
+                console.log('Delete query test passed:', query);
+            } catch (error) {
+                document.getElementById('result').innerHTML = `Error: ${error.message}`;
+                console.error('Delete query test failed:', error);
+            }
+        }
+    </script>
+</body>
+</html>

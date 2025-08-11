@@ -61,23 +61,16 @@
                         </a>
                     </li>
                     
-                    {% if session.current_connection %}
-                    <li class="nav-item d-flex align-items-center">
-                        <span class="badge bg-success me-2">
-                            <i class="fas fa-plug me-1"></i>Connected
+                    <!-- Dynamic Connection Status -->
+                    <li class="nav-item d-flex align-items-center" id="connection-status-container">
+                        <span id="connection-status-badge" class="badge bg-secondary me-2">
+                            <i class="fas fa-unlink me-1"></i>Checking...
                         </span>
-                        <a class="nav-link px-2 text-warning" href="{{ url_for('disconnect') }}" title="Disconnect">
+                        <a id="disconnect-btn" class="nav-link px-2 text-warning d-none" href="{{ url_for('disconnect') }}" title="Disconnect">
                             <i class="fas fa-sign-out-alt"></i>
                             <span class="d-none d-xl-inline ms-1">Disconnect</span>
                         </a>
                     </li>
-                    {% else %}
-                    <li class="nav-item d-flex align-items-center">
-                        <span class="badge bg-secondary me-2">
-                            <i class="fas fa-unlink me-1"></i>Disconnected
-                        </span>
-                    </li>
-                    {% endif %}
                     
                     <!-- Theme Switcher -->
                     <li class="nav-item dropdown me-2">
@@ -180,5 +173,66 @@
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     
     {% block extra_scripts %}{% endblock %}
+    
+    <!-- Connection Status Checker -->
+    <script>
+        let connectionCheckInterval;
+        
+        function checkConnectionStatus() {
+            fetch('/api/connection/status')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Connection status response:', data);
+                    
+                    const statusBadge = document.getElementById('connection-status-badge');
+                    const disconnectBtn = document.getElementById('disconnect-btn');
+                    
+                    if (data.connected) {
+                        statusBadge.className = 'badge bg-success me-2';
+                        statusBadge.innerHTML = '<i class="fas fa-plug me-1"></i>Connected';
+                        disconnectBtn.classList.remove('d-none');
+                        
+                        // Update tooltip with connection info if available
+                        if (data.connection_info) {
+                            statusBadge.title = `${data.connection_info.host}/${data.connection_info.database} (since ${data.connection_info.created_at})`;
+                        }
+                    } else {
+                        statusBadge.className = 'badge bg-secondary me-2';
+                        statusBadge.innerHTML = '<i class="fas fa-unlink me-1"></i>Disconnected';
+                        disconnectBtn.classList.add('d-none');
+                        statusBadge.title = data.message || 'No active connection';
+                        
+                        // Stop checking if disconnected
+                        if (connectionCheckInterval) {
+                            clearInterval(connectionCheckInterval);
+                            connectionCheckInterval = null;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking connection status:', error);
+                    const statusBadge = document.getElementById('connection-status-badge');
+                    statusBadge.className = 'badge bg-warning me-2';
+                    statusBadge.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Error';
+                    statusBadge.title = 'Failed to check connection status';
+                });
+        }
+        
+        // Start checking connection status when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initial check
+            checkConnectionStatus();
+            
+            // Check every 5 seconds if there might be an active connection
+            connectionCheckInterval = setInterval(checkConnectionStatus, 5000);
+        });
+        
+        // Stop checking when page is unloaded
+        window.addEventListener('beforeunload', function() {
+            if (connectionCheckInterval) {
+                clearInterval(connectionCheckInterval);
+            }
+        });
+    </script>
 </body>
 </html>

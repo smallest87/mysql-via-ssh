@@ -12,11 +12,16 @@ dengan antarmuka yang user-friendly dan secure.
 
 import os
 import sys
+import logging
 from flask import Flask, render_template, request, jsonify, flash, redirect, url_for
 from flask import session
 import json
 from datetime import datetime
 import traceback
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Import core MySQL SSH Connection
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
@@ -238,7 +243,75 @@ class MySQLSSHFlaskApp:
             
             return redirect(url_for('index'))
         
+        @self.app.route('/api/connection/status')
+        def connection_status():
+            """API untuk check status koneksi real-time"""
+            try:
+                connection_id = session.get('current_connection')
+                logger.info(f"Checking connection status for ID: {connection_id}")
+                
+                if not connection_id:
+                    logger.info("No connection ID in session")
+                    return jsonify({
+                        'connected': False,
+                        'message': 'No active connection session'
+                    })
+                
+                if connection_id not in self.active_connections:
+                    # Connection ID ada di session tapi tidak ada di active_connections
+                    logger.warning(f"Connection ID {connection_id} not found in active connections")
+                    session.pop('current_connection', None)
+                    return jsonify({
+                        'connected': False,
+                        'message': 'Connection not found in active connections'
+                    })
+                
+                # Check apakah koneksi masih aktif
+                mysql_ssh = self.active_connections[connection_id]['connection']
+                logger.info(f"Testing connection health for {connection_id}")
+                is_connected = mysql_ssh.is_connected()
+                logger.info(f"Connection health result: {is_connected}")
+                
+                if not is_connected:
+                    # Koneksi terputus, bersihkan session dan active_connections
+                    logger.warning(f"Connection {connection_id} is dead, cleaning up")
+                    del self.active_connections[connection_id]
+                    session.pop('current_connection', None)
+                    
+                    return jsonify({
+                        'connected': False,
+                        'message': 'Connection lost'
+                    })
+                
+                # Koneksi masih aktif
+                connection_info = self.active_connections[connection_id]
+                logger.info(f"Connection {connection_id} is healthy")
+                return jsonify({
+                    'connected': True,
+                    'message': 'Connection active',
+                    'connection_info': {
+                        'host': connection_info['mysql_config']['host'],
+                        'database': connection_info['mysql_config']['database'],
+                        'created_at': connection_info['created_at'].strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                })
+                
+            except Exception as e:
+                logger.error(f"Error in connection_status endpoint: {e}")
+                return jsonify({
+                    'connected': False,
+                    'message': f'Error checking status: {str(e)}'
+                }), 500
+        
         # ========== ADMIN ROUTES ==========
+        @self.app.route('/admin')
+        def admin():
+            """Redirect admin root to appropriate page"""
+            if session.get('admin_logged_in'):
+                return redirect(url_for('admin_dashboard'))
+            else:
+                return redirect(url_for('admin_login'))
+        
         @self.app.route('/admin/login', methods=['GET', 'POST'])
         def admin_login():
             """Admin login page with database authentication"""
@@ -419,7 +492,50 @@ class MySQLSSHFlaskApp:
             if not session.get('admin_logged_in'):
                 flash('Please login to access admin workspace.', 'warning')
                 return redirect(url_for('admin_login'))
-            return render_template('admin_workspace.html')
+            
+            # Ensure session data completeness for workspace
+            admin_role = session.get('admin_role')
+            admin_user_id = session.get('admin_user_id')
+            has_role = admin_role is not None and admin_role != ''
+            has_user_id = admin_user_id is not None and admin_user_id != ''
+            
+            # If session data incomplete, refetch from database
+            if not has_role or not has_user_id:
+                username = session.get('admin_username')
+                if username:
+                    # Get admin data from database
+                    try:
+                        cursor = admin_db.conn.cursor()
+                        cursor.execute("""
+                            SELECT id, username, email, full_name, role, is_active 
+                            FROM admin_users WHERE username = ? AND is_active = 1
+                        """, (username,))
+                        admin_data = cursor.fetchone()
+                        
+                        if admin_data:
+                            # Update session with complete data
+                            session['admin_user_id'] = admin_data[0]
+                            session['admin_username'] = admin_data[1]
+                            session['admin_email'] = admin_data[2]
+                            session['admin_full_name'] = admin_data[3]
+                            session['admin_role'] = admin_data[4]
+                            session.modified = True  # Force session save
+                        else:
+                            session.clear()
+                            flash('Session expired. Please login again.', 'warning')
+                            return redirect(url_for('admin_login'))
+                    except Exception as e:
+                        session.clear()
+                        flash('Session error. Please login again.', 'error')
+                        return redirect(url_for('admin_login'))
+            
+            return render_template(
+                'admin_workspace.html',
+                admin_user_id=session.get('admin_user_id'),
+                admin_username=session.get('admin_username'),
+                admin_role=session.get('admin_role'),
+                admin_full_name=session.get('admin_full_name')
+            )
         
         @self.app.route('/admin/api/workspace/queries')
         def api_workspace_queries():
@@ -442,11 +558,23 @@ class MySQLSSHFlaskApp:
                 
             admin_id = session.get('admin_user_id')
             
-            query_name = request.form.get('query_name', '').strip()
-            sql_query = request.form.get('sql_query', '').strip()
-            description = request.form.get('query_description', '').strip()
-            category = request.form.get('query_category', 'general')
-            is_favorite = request.form.get('is_favorite') == 'on'
+            if not admin_id:
+                return jsonify({'success': False, 'message': 'Admin ID not found in session. Please login again.'})
+            
+            # Handle both JSON and form data
+            if request.is_json:
+                data = request.get_json()
+                query_name = data.get('name', '').strip()
+                sql_query = data.get('sql_query', '').strip()
+                description = data.get('description', '').strip()
+                category = data.get('category', 'general')
+                is_favorite = data.get('is_favorite', False)
+            else:
+                query_name = request.form.get('query_name', '').strip()
+                sql_query = request.form.get('sql_query', '').strip()
+                description = request.form.get('query_description', '').strip()
+                category = request.form.get('query_category', 'general')
+                is_favorite = request.form.get('is_favorite') == 'on'
             
             if not query_name or not sql_query:
                 return jsonify({'success': False, 'message': 'Query name and SQL are required'})
@@ -550,6 +678,50 @@ class MySQLSSHFlaskApp:
                     'message': f'Query execution failed: {error_message}',
                     'execution_time_ms': execution_time_ms
                 })
+        
+        @self.app.route('/admin/api/workspace/queries/update', methods=['POST'])
+        def api_workspace_update_query():
+            """API untuk update custom query"""
+            if not session.get('admin_logged_in'):
+                return jsonify({'success': False, 'message': 'Authentication required'})
+                
+            admin_id = session.get('admin_user_id')
+            data = request.get_json()
+            
+            query_id = data.get('query_id')
+            query_name = data.get('name', '').strip()
+            category = data.get('category', 'uncategorized')
+            description = data.get('description', '').strip()
+            sql_query = data.get('sql_query', '').strip()
+            
+            if not query_id:
+                return jsonify({'success': False, 'message': 'Query ID is required'})
+            
+            if not query_name:
+                return jsonify({'success': False, 'message': 'Query name is required'})
+            
+            if not sql_query:
+                return jsonify({'success': False, 'message': 'SQL query is required'})
+            
+            result = admin_db.update_custom_query(admin_id, query_id, query_name, sql_query, category, description)
+            return jsonify(result)
+        
+        @self.app.route('/admin/api/workspace/queries/delete', methods=['DELETE'])
+        def api_workspace_delete_query():
+            """API untuk delete custom query"""
+            if not session.get('admin_logged_in'):
+                return jsonify({'success': False, 'message': 'Authentication required'})
+                
+            admin_id = session.get('admin_user_id')
+            data = request.get_json()
+            
+            query_id = data.get('query_id')
+            
+            if not query_id:
+                return jsonify({'success': False, 'message': 'Query ID is required'})
+            
+            result = admin_db.delete_custom_query(admin_id, query_id)
+            return jsonify(result)
         
         # ============= ERROR HANDLERS =============
         

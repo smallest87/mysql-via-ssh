@@ -282,7 +282,7 @@ class AdminDB:
             return None
     
     def get_all_admins(self) -> List[Dict[str, Any]]:
-        """Ambil semua admin users (tanpa password hash)"""
+        """Ambil semua admin users yang aktif (tanpa password hash)"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
@@ -291,6 +291,7 @@ class AdminDB:
                     SELECT id, username, email, full_name, role, is_active,
                            created_at, last_login, login_count
                     FROM admin_users 
+                    WHERE is_active = 1
                     ORDER BY created_at DESC
                 ''')
                 
@@ -415,6 +416,9 @@ class AdminDB:
     def save_custom_query(self, admin_id, query_name, sql_query, description=None, category='general', is_favorite=False):
         """Simpan custom query untuk admin workspace"""
         try:
+            if not admin_id:
+                return {'success': False, 'message': 'Admin ID is required'}
+                
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 
@@ -502,6 +506,35 @@ class AdminDB:
                     
         except Exception as e:
             logger.error(f"Error menghapus custom query: {e}")
+            return {'success': False, 'message': f'Error: {e}'}
+    
+    def update_custom_query(self, admin_id, query_id, query_name, sql_query, category='uncategorized', description=''):
+        """Update custom query yang sudah ada"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Pastikan query milik admin yang benar
+                cursor.execute('''
+                    SELECT id FROM admin_custom_queries 
+                    WHERE id = ? AND admin_id = ?
+                ''', (query_id, admin_id))
+                
+                if not cursor.fetchone():
+                    return {'success': False, 'message': 'Query tidak ditemukan atau bukan milik Anda'}
+                
+                # Update query
+                cursor.execute('''
+                    UPDATE admin_custom_queries 
+                    SET query_name = ?, sql_query = ?, query_category = ?, query_description = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND admin_id = ?
+                ''', (query_name, sql_query, category, description, query_id, admin_id))
+                
+                logger.info(f"Custom query '{query_name}' updated by admin {admin_id}")
+                return {'success': True, 'message': 'Query berhasil diperbarui', 'query_id': query_id}
+                
+        except Exception as e:
+            logger.error(f"Error mengupdate custom query: {e}")
             return {'success': False, 'message': f'Error: {e}'}
     
     def toggle_query_favorite(self, admin_id, query_id):

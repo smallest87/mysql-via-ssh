@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Button Functions</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .query-card { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .btn { padding: 8px 12px; margin: 5px; cursor: pointer; border: 1px solid #007bff; background: white; color: #007bff; }
+        .btn:hover { background: #007bff; color: white; }
+        #console { background: #f8f9fa; padding: 10px; margin-top: 20px; white-space: pre-wrap; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>Test Button Functions</h1>
+    
+    <div class="query-card">
+        <h3>Test Query 1</h3>
+        <p>SELECT * FROM users LIMIT 10;</p>
+        <div>
+            <button class="btn" onclick="editQuery(1)">Edit</button>
+            <button class="btn" onclick="executeQuery(1)">Execute</button>
+            <button class="btn" onclick="deleteQuery(1)">Delete</button>
+        </div>
+    </div>
+    
+    <div class="query-card">
+        <h3>Test Query 2</h3>
+        <p>SELECT COUNT(*) FROM products;</p>
+        <div>
+            <button class="btn" onclick="editQuery(2)">Edit</button>
+            <button class="btn" onclick="executeQuery(2)">Execute</button>
+            <button class="btn" onclick="deleteQuery(2)">Delete</button>
+        </div>
+    </div>
+    
+    <div id="console"></div>
+
+    <script>
+        // Mock data
+        let queries = [
+            {
+                id: 1,
+                name: "Users Query",
+                category: "general", 
+                description: "Get all users",
+                sql_query: "SELECT * FROM users LIMIT 10;"
+            },
+            {
+                id: 2,
+                name: "Product Count",
+                category: "analytics",
+                description: "Count products", 
+                sql_query: "SELECT COUNT(*) FROM products;"
+            }
+        ];
+
+        function log(message) {
+            const console = document.getElementById('console');
+            console.textContent += new Date().toLocaleTimeString() + ': ' + message + '\n';
+        }
+
+        function editQuery(queryId) {
+            log('editQuery called with ID: ' + queryId + ' (Type: ' + typeof queryId + ')');
+            log('Available queries: ' + JSON.stringify(queries, null, 2));
+            
+            const numericId = parseInt(queryId);
+            log('Converted ID: ' + numericId);
+            
+            const query = queries.find(q => q.id === numericId);
+            if (!query) {
+                log('ERROR: Query not found with ID: ' + queryId);
+                log('Available query IDs: ' + queries.map(q => q.id).join(', '));
+                alert('Query not found');
+                return;
+            }
+            
+            log('SUCCESS: Found query: ' + JSON.stringify(query, null, 2));
+            alert('Edit query: ' + query.name);
+        }
+
+        function executeQuery(queryId) {
+            log('executeQuery called with ID: ' + queryId + ' (Type: ' + typeof queryId + ')');
+            
+            const numericId = parseInt(queryId);
+            const query = queries.find(q => q.id === numericId);
+            if (!query) {
+                log('ERROR: Query not found with ID: ' + queryId);
+                alert('Query not found');
+                return;
+            }
+            
+            log('SUCCESS: Found query for execution: ' + JSON.stringify(query, null, 2));
+            alert('Execute query: ' + query.sql_query);
+        }
+
+        function deleteQuery(queryId) {
+            log('deleteQuery called with ID: ' + queryId + ' (Type: ' + typeof queryId + ')');
+            
+            const numericId = parseInt(queryId);
+            const query = queries.find(q => q.id === numericId);
+            if (!query) {
+                log('ERROR: Query not found with ID: ' + queryId);
+                alert('Query not found');
+                return;
+            }
+            
+            log('SUCCESS: Found query for deletion: ' + JSON.stringify(query, null, 2));
+            if (confirm('Delete query: ' + query.name + '?')) {
+                alert('Query would be deleted: ' + query.name);
+            }
+        }
+
+        log('Page loaded successfully');
+        log('Test queries initialized: ' + queries.length + ' queries');
+    </script>
+</body>
+</html>

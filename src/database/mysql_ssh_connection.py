@@ -169,6 +169,45 @@ class MySQLSSHConnection:
             logger.error(f"Reconnect gagal: {str(e)}")
             return False
     
+    def is_connected(self):
+        """
+        Check apakah koneksi SSH tunnel dan MySQL masih aktif
+        
+        Returns:
+            bool: True jika koneksi aktif, False jika tidak
+        """
+        try:
+            # Check SSH tunnel
+            if not self.tunnel:
+                logger.info("SSH tunnel object tidak ada")
+                return False
+                
+            if not self.tunnel.is_active:
+                logger.info("SSH tunnel tidak aktif")
+                return False
+            
+            # Check MySQL connection
+            if not self.connection:
+                logger.info("MySQL connection object tidak ada")
+                return False
+            
+            # Test MySQL connection dengan query sederhana
+            try:
+                cursor = self.connection.cursor()
+                cursor.execute("SELECT 1")
+                result = cursor.fetchone()
+                cursor.close()
+                logger.info("MySQL connection test berhasil")
+                return True
+                
+            except Exception as mysql_error:
+                logger.warning(f"MySQL connection test gagal: {mysql_error}")
+                return False
+            
+        except Exception as e:
+            logger.error(f"Error checking connection status: {e}")
+            return False
+    
     def close(self):
         """Menutup koneksi MySQL dan SSH tunnel"""
         if self.connection:
