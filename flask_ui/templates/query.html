@@ -187,7 +187,12 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                app.displayQueryResults(data.data, data.message);
+                if (window.app && window.app.displayQueryResults) {
+                    window.app.displayQueryResults(data.data, data.message);
+                } else {
+                    // Fallback to local function
+                    displayQueryResults(data.data, data.message);
+                }
             } else {
                 resultsContainer.innerHTML = `
                     <div class="alert alert-danger">

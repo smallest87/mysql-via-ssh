@@ -13,7 +13,98 @@ class MySQLSSHUI {
         this.setupEventListeners();
         this.initializeComponents();
         this.setupActiveNavigation();
+        this.setupThemeManager();
         console.log('MySQL SSH UI initialized');
+    }
+
+    setupThemeManager() {
+        // Load saved theme or default to light
+        const savedTheme = localStorage.getItem('mysql-ssh-theme') || 'light';
+        this.applyTheme(savedTheme);
+        
+        // Setup theme switcher event listeners
+        document.querySelectorAll('.theme-option').forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.preventDefault();
+                const theme = e.target.closest('.theme-option').getAttribute('data-theme');
+                this.applyTheme(theme);
+                localStorage.setItem('mysql-ssh-theme', theme);
+            });
+        });
+        
+        // Update theme dropdown text
+        this.updateThemeDropdownText(savedTheme);
+    }
+
+    applyTheme(theme) {
+        // Remove existing theme classes
+        document.documentElement.removeAttribute('data-theme');
+        
+        // Apply new theme
+        if (theme !== 'light') {
+            document.documentElement.setAttribute('data-theme', theme);
+        }
+        
+        // Update active theme in dropdown
+        document.querySelectorAll('.theme-option').forEach(option => {
+            option.classList.remove('active');
+            if (option.getAttribute('data-theme') === theme) {
+                option.classList.add('active');
+            }
+        });
+        
+        // Add theme-specific classes for special effects
+        document.body.className = document.body.className.replace(/theme-\w+/g, '');
+        document.body.classList.add(`theme-${theme}`);
+        
+        // Matrix theme special effects
+        if (theme === 'matrix') {
+            this.enableMatrixEffects();
+        } else {
+            this.disableMatrixEffects();
+        }
+        
+        this.updateThemeDropdownText(theme);
+    }
+
+    updateThemeDropdownText(theme) {
+        const themeDropdown = document.getElementById('themeDropdown');
+        const themeNames = {
+            'light': '<i class="fas fa-sun"></i><span class="d-none d-xl-inline ms-1">Light</span>',
+            'dark': '<i class="fas fa-moon"></i><span class="d-none d-xl-inline ms-1">Dark</span>',
+            'matrix': '<i class="fas fa-code"></i><span class="d-none d-xl-inline ms-1">Matrix</span>'
+        };
+        
+        if (themeDropdown) {
+            themeDropdown.innerHTML = themeNames[theme];
+        }
+    }
+
+    enableMatrixEffects() {
+        // Add matrix rain effect to navbar brand
+        const brand = document.querySelector('.navbar-brand');
+        if (brand) {
+            brand.style.animation = 'matrix-glow 2s ease-in-out infinite alternate';
+        }
+        
+        // Add pulsing effect to connected badge
+        const connectedBadge = document.querySelector('.badge.bg-success');
+        if (connectedBadge) {
+            connectedBadge.style.animation = 'matrix-pulse 1.5s ease-in-out infinite';
+        }
+    }
+
+    disableMatrixEffects() {
+        // Remove matrix effects
+        const brand = document.querySelector('.navbar-brand');
+        if (brand) {
+            brand.style.animation = '';
+        }
+        
+        const connectedBadge = document.querySelector('.badge.bg-success');
+        if (connectedBadge) {
+            connectedBadge.style.animation = 'pulse 2s infinite';
+        }
     }
 
     setupActiveNavigation() {
@@ -453,6 +544,8 @@ class MySQLSSHUI {
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
     window.mysqlSSHUI = new MySQLSSHUI();
+    // Create global app alias for easier access
+    window.app = window.mysqlSSHUI;
 });
 
 // Global utility functions
