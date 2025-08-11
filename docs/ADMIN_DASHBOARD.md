@@ -1,172 +1,353 @@
-# 🛡️ **Admin Dashboard - MySQL SSH Connection**
+# 🛡️ **Admin Management System - MySQL SSH Connection**
 
 ## **Overview**
-Fitur Admin Dashboard menyediakan panel kontrol administratif untuk mengelola dan memonitor sistem MySQL SSH Connection. Dashboard ini dilengkapi dengan sistem login keamanan dan berbagai tools administratif.
+Sistem Admin Management menyediakan panel kontrol administratif lengkap dengan database SQLite untuk mengelola multiple admin users, sistem registrasi, dan monitoring aktivitas sistem MySQL SSH Connection.
 
 ---
 
-## **🔐 Akses Admin**
+## **🗄️ Database Structure**
 
-### **Login Credentials**
+### **Admin Users Table**
+```sql
+CREATE TABLE admin_users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    full_name TEXT NOT NULL,
+    role TEXT DEFAULT 'admin',
+    is_active BOOLEAN DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP NULL,
+    login_count INTEGER DEFAULT 0
+);
+```
+
+### **Admin Sessions Table**
+```sql
+CREATE TABLE admin_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    admin_id INTEGER NOT NULL,
+    session_token TEXT UNIQUE NOT NULL,
+    ip_address TEXT,
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    is_active BOOLEAN DEFAULT 1,
+    FOREIGN KEY (admin_id) REFERENCES admin_users (id)
+);
+```
+
+---
+
+## **🔐 Authentication System**
+
+### **Default Admin Account**
 ```
 Username: admin
+Email: admin@javasatu.com
 Password: admin123
+Role: super_admin
 ```
 
-### **Cara Mengakses:**
-1. Buka web UI: `http://127.0.0.1:5000`
-2. Klik **"Admin"** di navbar
-3. Masukkan credentials di atas
-4. Dashboard admin akan terbuka setelah login berhasil
-
----
-
-## **📊 Fitur Dashboard Admin**
-
-### **1. Statistics Cards**
-- **Active Connections**: Jumlah koneksi database yang aktif
-- **Total Queries**: Total query yang telah dieksekusi 
-- **System Uptime**: Waktu operasional sistem
-- **Admin Sessions**: Jumlah sesi admin yang aktif
-
-### **2. System Controls**
-#### **Database Management:**
-- 🔄 **Refresh Connections**: Memperbarui status koneksi database
-- 📄 **View System Logs**: Melihat log aktivitas sistem
-- 💾 **Backup Configuration**: Membuat backup konfigurasi
-
-#### **User Management:**
-- 🧹 **Clear All Sessions**: Menghapus semua sesi pengguna
-- 📈 **View User Activity**: Melihat laporan aktivitas pengguna
-- 🛑 **Emergency Stop**: Menghentikan semua koneksi darurat
-
-### **3. System Status Monitor**
-- **Server Status**: Indikator kesehatan server (98% Operational)
-- **Memory Usage**: Penggunaan memori sistem (65% Used)
-- **CPU Usage**: Penggunaan CPU (45% Used) 
-- **Disk Space**: Penggunaan disk (78% Used)
-
-### **4. Quick Actions**
-- 📡 **Test Connection**: Menguji konektivitas sistem
-- 📤 **Export Data**: Mengeksport data sistem
-- 📊 **Generate Report**: Membuat laporan administratif
-- 🔧 **Maintenance Mode**: Mengaktifkan mode maintenance
-
-### **5. Recent Activity Log**
-Tabel aktivitas terbaru yang menampilkan:
-- **Time**: Waktu aktivitas
-- **Action**: Jenis aksi yang dilakukan
-- **User**: Pengguna yang melakukan aksi
-- **Status**: Status hasil aksi (Success/Error/etc.)
-
----
-
-## **🔒 Security Features**
+### **Password Security**
+- SHA-256 encryption dengan salt
+- Minimum 6 karakter
+- Password di-hash sebelum disimpan
+- Salt: `mysql_ssh_admin_salt_2025`
 
 ### **Session Management**
-- Session-based authentication untuk admin
-- Auto-logout setelah periode tidak aktif
-- Credentials tidak disimpan permanen
-
-### **Access Control**
-- Protected routes - hanya admin yang dapat mengakses
-- Redirect otomatis ke login jika belum authenticated
-- Logout function untuk mengakhiri sesi admin
-
-### **Security Notices**
-- Dashboard ini adalah demo/testing version
-- Credentials hardcoded untuk keperluan development
-- Untuk production, gunakan sistem autentikasi proper
-- Session akan expire setelah inactivity
+- Session-based authentication
+- Auto-logout pada inactivity
+- Login tracking dan counting
+- Last login timestamp
 
 ---
 
-## **💻 Technical Implementation**
+## **📝 Admin Registration**
 
-### **Routes Structure**
+### **Registration Form Fields**
+1. **Username** (3-20 characters, alphanumeric only)
+2. **Email** (valid email format, unique)
+3. **Full Name** (2-100 characters)
+4. **Password** (minimum 6 characters)
+5. **Confirm Password** (must match)
+6. **Role** (admin/super_admin)
+
+### **Validation Rules**
+- ✅ Username uniqueness check
+- ✅ Email format dan uniqueness validation
+- ✅ Password strength requirements
+- ✅ Password confirmation matching
+- ✅ Terms and conditions acceptance
+
+### **Registration Process**
+1. Fill registration form
+2. Client-side validation (JavaScript)
+3. Server-side validation (Flask)
+4. Password hashing
+5. Database insertion
+6. Success/error feedback
+
+---
+
+## **👥 Admin Management Interface**
+
+### **Admin Statistics Cards**
+- **Active Admins**: Jumlah admin aktif
+- **Inactive Admins**: Jumlah admin tidak aktif  
+- **Total Admins**: Total semua admin
+- **Recent Logins**: Login dalam 7 hari terakhir
+
+### **Admin List Table**
+| Column | Description |
+|--------|-------------|
+| ID | Auto-increment primary key |
+| Username | Unique username |
+| Full Name | Complete name |
+| Email | Email address |
+| Role | admin/super_admin |
+| Status | Active/Inactive badge |
+| Created | Registration date |
+| Last Login | Last login datetime |
+| Login Count | Total login attempts |
+| Actions | Activate/Deactivate/Delete |
+
+### **Admin Actions**
+1. **Activate/Deactivate**: Toggle admin status
+2. **Delete**: Soft delete (set is_active = 0)
+3. **Protection**: Cannot delete/deactivate yourself
+4. **Super Admin Protection**: Cannot delete last super admin
+
+---
+
+## **🚀 API Endpoints**
+
+### **Authentication Routes**
 ```python
-/admin/login       # GET/POST - Login page
-/admin/dashboard   # GET - Admin dashboard (protected)
-/admin/logout      # GET - Logout action
+GET  /admin/login          # Login form
+POST /admin/login          # Process login
+GET  /admin/logout         # Logout action
 ```
 
-### **Session Variables**
+### **Registration Routes**
 ```python
-session['admin_logged_in']   # Boolean status login
-session['admin_username']    # Username admin
-session['admin_login_time']  # Waktu login
+GET  /admin/register       # Registration form  
+POST /admin/register       # Process registration
 ```
 
-### **Template Files**
-```
-templates/admin_login.html      # Login form
-templates/admin_dashboard.html  # Dashboard interface
-```
-
----
-
-## **🚀 Usage Examples**
-
-### **Demo Admin Actions**
-Semua admin actions adalah **simulasi dummy** untuk testing:
-
-1. **Refresh Connections** → "Database connections refreshed successfully"
-2. **View Logs** → "System logs retrieved (showing last 100 entries)"
-3. **Backup Config** → "Configuration backup created successfully"
-4. **Clear Sessions** → "All user sessions cleared successfully"
-5. **Emergency Stop** → "Emergency stop initiated - all connections terminated"
-
-### **Testing Workflow**
-1. Login dengan credentials: `admin` / `admin123`
-2. Explore berbagai cards dan statistik
-3. Test admin actions dengan klik buttons
-4. Monitor recent activity log
-5. Logout melalui dropdown user
-
----
-
-## **⚠️ Important Notes**
-
-### **Development vs Production**
-- **Development**: Hardcoded credentials untuk testing
-- **Production**: Implementasikan proper authentication system
-- **Security**: Gunakan password hashing dan database untuk users
-
-### **Demo Limitations**
-- Statistics adalah data dummy/simulation
-- Admin actions tidak mempengaruhi sistem sebenarnya
-- Real-time updates belum diimplementasikan
-- Backup/export functions adalah placeholder
-
-### **Future Enhancements**
-- Database-driven user management
-- Real system monitoring integration
-- Actual backup/restore functionality
-- Role-based access control (RBAC)
-- Audit logging ke database
-- Real-time notifications
-
----
-
-## **🔧 Customization**
-
-### **Mengubah Credentials**
-Edit di file `flask_ui/app.py`:
+### **Management Routes**
 ```python
-# Demo credentials (dalam produksi gunakan hash dan database)
-if username == 'your_admin' and password == 'your_secure_password':
+GET  /admin/dashboard      # Admin dashboard
+GET  /admin/management     # Admin management page
+POST /admin/toggle_status  # Toggle admin status (AJAX)
+POST /admin/delete_admin   # Delete admin (AJAX)
 ```
 
-### **Menambah Admin Actions**
-1. Tambahkan button di `admin_dashboard.html`
-2. Update JavaScript function `adminAction()`
-3. Implementasikan backend logic jika diperlukan
+---
 
-### **Styling Customization**
-Dashboard menggunakan Bootstrap classes dan CSS variables dari theme system yang sudah ada, sehingga otomatis mengikuti theme yang dipilih (Light/Dark/Matrix).
+## **🎯 Usage Workflow**
+
+### **1. First Time Setup**
+1. Access: `http://127.0.0.1:5000/admin/login`
+2. Login dengan default admin: `admin` / `admin123`
+3. Dashboard akan terbuka otomatis
+
+### **2. Admin Registration**
+1. Dari login page, klik "Register New Admin"
+2. Isi form registrasi lengkap
+3. Pilih role (admin/super_admin)
+4. Submit form
+5. Redirect ke login page dengan success message
+
+### **3. Admin Management**
+1. Login sebagai admin
+2. Dashboard → dropdown menu → "Manage Admins"
+3. View statistics dan admin list
+4. Activate/deactivate admin accounts
+5. Delete admin accounts (with protection)
+
+### **4. Testing Multiple Admins**
+1. Register beberapa admin dengan role berbeda
+2. Test login dengan masing-masing account
+3. Verify session management
+4. Test admin management features
+
+---
+
+## **🔧 Advanced Features**
+
+### **Role-Based Access**
+- **Regular Admin**: Standard administrative privileges
+- **Super Admin**: Full system control + user management
+- **Protection**: Last super admin cannot be deleted
+
+### **Session Tracking**
+- Login time tracking
+- Login count monitoring
+- Session persistence
+- Auto-logout capability
+
+### **Security Features**
+- Password hashing with salt
+- SQL injection protection (parameterized queries)
+- XSS protection (Flask auto-escaping)
+- CSRF protection potential
+- Input validation & sanitization
+
+### **Database Features**
+- SQLite for portability
+- Automatic table creation
+- Default admin generation
+- Foreign key constraints
+- Soft delete mechanism
+
+---
+
+## **📊 Admin Dashboard Enhancements**
+
+### **Real Statistics Integration**
+```python
+# Get real admin statistics
+admin_stats = admin_db.get_admin_stats()
+stats = {
+    'active_connections': len(self.active_connections),
+    'total_queries': 247,  # Could be made dynamic
+    'uptime': '2d 14h',    # Could be made dynamic  
+    'admin_sessions': admin_stats['total_active']
+}
+```
+
+### **Dynamic User Display**
+- Show logged-in admin's full name in dropdown
+- Display "You" badge for current user in admin list
+- Personalized welcome messages
+
+### **Interactive Management**
+- AJAX-powered admin actions
+- Real-time status updates
+- Confirmation modals for destructive actions
+- Auto-refresh capabilities
+
+---
+
+## **🔍 Testing Guide**
+
+### **Registration Testing**
+1. **Valid Registration**:
+   - Username: `testadmin`
+   - Email: `test@example.com`
+   - Password: `test123`
+   - Full Name: `Test Administrator`
+   - Role: `admin`
+
+2. **Invalid Registration Tests**:
+   - Duplicate username
+   - Duplicate email
+   - Password mismatch
+   - Short password
+   - Invalid email format
+
+### **Login Testing**
+1. **Valid Login**: Created admin credentials
+2. **Invalid Login**: Wrong password/username
+3. **Session Persistence**: Refresh page, should stay logged in
+4. **Auto-redirect**: Access protected pages should redirect to login
+
+### **Management Testing**
+1. **Create Multiple Admins**: Different roles
+2. **Toggle Status**: Activate/deactivate accounts
+3. **Delete Protection**: Try to delete yourself (should fail)
+4. **Super Admin Protection**: Try to delete last super admin
+
+---
+
+## **⚙️ Configuration**
+
+### **Database Location**
+```python
+# Default path
+config/admin_users.db
+
+# Custom path
+admin_db = AdminDB('/custom/path/admin.db')
+```
+
+### **Security Settings**
+```python
+# Password salt (production: use environment variable)
+ADMIN_PASSWORD_SALT = "mysql_ssh_admin_salt_2025"
+
+# Session settings
+FLASK_SECRET_KEY = "mysql-ssh-ui-key-change-in-production"
+```
+
+### **Role Permissions**
+```python
+ADMIN_ROLES = {
+    'admin': 'Standard administrative privileges',
+    'super_admin': 'Full system administrative privileges'
+}
+```
+
+---
+
+## **🚧 Production Deployment**
+
+### **Security Enhancements**
+1. **Environment Variables**:
+   ```bash
+   export FLASK_SECRET_KEY="your-super-secret-key"
+   export ADMIN_DB_PATH="/secure/path/admin.db"
+   export ADMIN_PASSWORD_SALT="random-unique-salt"
+   ```
+
+2. **Database Security**:
+   - Move database ke lokasi aman
+   - Set proper file permissions
+   - Regular backup schedule
+
+3. **Additional Security**:
+   - HTTPS enforcement
+   - Rate limiting untuk login attempts
+   - Password complexity requirements
+   - Session timeout settings
+
+### **Database Migration**
+```python
+# Backup existing database
+cp config/admin_users.db config/admin_users.db.backup
+
+# Update database schema if needed
+python -c "from src.database.admin_db import admin_db; admin_db.init_database()"
+```
+
+---
+
+## **📈 Future Enhancements**
+
+### **Planned Features**
+- [ ] Password reset functionality
+- [ ] Email verification for registration
+- [ ] Two-factor authentication (2FA)
+- [ ] Admin activity logging
+- [ ] Password expiration policies
+- [ ] Role-based permissions matrix
+- [ ] Bulk admin operations
+- [ ] Admin audit trail
+
+### **Integration Opportunities**
+- [ ] LDAP/Active Directory integration
+- [ ] OAuth2 authentication
+- [ ] Real-time notifications
+- [ ] Advanced session management
+- [ ] API key authentication
+- [ ] Multi-tenant support
 
 ---
 
 **📧 Developer: Julian Sukrisna (smallest87@gmail.com)**  
 **🏢 Organization: Javasatu.com**  
-**📅 Created: August 2025**
+**📅 Created: August 2025**  
+**🔄 Last Updated: August 11, 2025**

@@ -1,0 +1,426 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Management - MySQL SSH Connection{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2>
+                <i class="fas fa-users-cog text-primary me-2"></i>
+                Admin Management
+            </h2>
+            <div class="btn-group">
+                <a href="{{ url_for('admin_register') }}" class="btn btn-success">
+                    <i class="fas fa-user-plus me-2"></i>Add New Admin
+                </a>
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                </a>
+            </div>
+        </div>
+        <p class="text-muted">Manage administrator accounts and permissions</p>
+        <hr>
+    </div>
+</div>
+
+<!-- Admin Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Active Admins</h6>
+                        <h3 class="mb-0">{{ stats.total_active }}</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-user-check fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-secondary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Inactive Admins</h6>
+                        <h3 class="mb-0">{{ stats.total_inactive }}</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-user-times fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Total Admins</h6>
+                        <h3 class="mb-0">{{ stats.total_all }}</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-users fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Recent Logins</h6>
+                        <h3 class="mb-0">{{ stats.recent_logins }}</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-sign-in-alt fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Admin List -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    Administrator Accounts
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if admins %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>Full Name</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Last Login</th>
+                                <th>Login Count</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for admin in admins %}
+                            <tr>
+                                <td><strong>{{ admin.id }}</strong></td>
+                                <td>
+                                    <i class="fas fa-user me-1"></i>
+                                    {{ admin.username }}
+                                    {% if admin.username == session.admin_username %}
+                                    <span class="badge bg-info ms-1">You</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ admin.full_name }}</td>
+                                <td>
+                                    <i class="fas fa-envelope me-1"></i>
+                                    {{ admin.email }}
+                                </td>
+                                <td>
+                                    {% if admin.role == 'super_admin' %}
+                                    <span class="badge bg-danger">
+                                        <i class="fas fa-crown me-1"></i>Super Admin
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-primary">
+                                        <i class="fas fa-user-shield me-1"></i>Admin
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if admin.is_active %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check me-1"></i>Active
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">
+                                        <i class="fas fa-times me-1"></i>Inactive
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small>{{ admin.created_at.split(' ')[0] if admin.created_at else 'N/A' }}</small>
+                                </td>
+                                <td>
+                                    {% if admin.last_login %}
+                                    <small>{{ admin.last_login.split(' ')[0] }}</small>
+                                    <br><small class="text-muted">{{ admin.last_login.split(' ')[1].split('.')[0] if '.' in admin.last_login else admin.last_login.split(' ')[1] }}</small>
+                                    {% else %}
+                                    <small class="text-muted">Never</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ admin.login_count or 0 }}</span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        {% if admin.is_active %}
+                                        <button class="btn btn-outline-warning admin-toggle-btn" 
+                                                data-admin-id="{{ admin.id }}" 
+                                                data-action="deactivate"
+                                                {% if admin.username == session.admin_username %}disabled title="Cannot deactivate yourself"{% endif %}>
+                                            <i class="fas fa-pause"></i>
+                                        </button>
+                                        {% else %}
+                                        <button class="btn btn-outline-success admin-toggle-btn" 
+                                                data-admin-id="{{ admin.id }}" 
+                                                data-action="activate">
+                                            <i class="fas fa-play"></i>
+                                        </button>
+                                        {% endif %}
+                                        
+                                        <button class="btn btn-outline-danger admin-delete-btn" 
+                                                data-admin-id="{{ admin.id }}" 
+                                                data-admin-username="{{ admin.username }}"
+                                                {% if admin.username == session.admin_username %}disabled title="Cannot delete yourself"{% endif %}>
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">No admin accounts found</p>
+                    <a href="{{ url_for('admin_register') }}" class="btn btn-success">
+                        <i class="fas fa-user-plus me-2"></i>Create First Admin
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Action Results -->
+<div id="actionResults" class="mt-3"></div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Confirm Delete Admin
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete admin account: <strong id="deleteAdminName"></strong>?</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-warning me-2"></i>
+                    <strong>Warning:</strong> This action cannot be undone. The admin account will be deactivated permanently.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                    <i class="fas fa-trash me-2"></i>Delete Admin
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let currentAdminId = null;
+
+// Event delegation for admin management buttons
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle toggle status buttons
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.admin-toggle-btn')) {
+            const btn = e.target.closest('.admin-toggle-btn');
+            const adminId = btn.dataset.adminId;
+            const action = btn.dataset.action;
+            const newStatus = action === 'activate';
+            
+            toggleAdminStatus(adminId, newStatus);
+        }
+        
+        // Handle delete buttons
+        if (e.target.closest('.admin-delete-btn')) {
+            const btn = e.target.closest('.admin-delete-btn');
+            const adminId = btn.dataset.adminId;
+            const username = btn.dataset.adminUsername;
+            
+            deleteAdmin(adminId, username);
+        }
+    });
+});
+
+// Toggle admin status (activate/deactivate)
+function toggleAdminStatus(adminId, newStatus) {
+    const resultsDiv = document.getElementById('actionResults');
+    const action = newStatus ? 'activate' : 'deactivate';
+    
+    resultsDiv.innerHTML = `
+        <div class="alert alert-info">
+            <i class="fas fa-spinner fa-spin me-2"></i>
+            ${action === 'activate' ? 'Activating' : 'Deactivating'} admin account...
+        </div>
+    `;
+    
+    fetch('/admin/toggle_status', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+            admin_id: adminId, 
+            is_active: newStatus 
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            resultsDiv.innerHTML = `
+                <div class="alert alert-success alert-dismissible fade show">
+                    <i class="fas fa-check-circle me-2"></i>
+                    <strong>Success:</strong> Admin account ${action}d successfully!
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            // Reload page after 2 seconds
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            resultsDiv.innerHTML = `
+                <div class="alert alert-danger alert-dismissible fade show">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Error:</strong> ${data.error || 'Failed to update admin status'}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        resultsDiv.innerHTML = `
+            <div class="alert alert-danger alert-dismissible fade show">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Network Error:</strong> ${error.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+    });
+}
+
+// Delete admin (show confirmation modal)
+function deleteAdmin(adminId, username) {
+    currentAdminId = adminId;
+    document.getElementById('deleteAdminName').textContent = username;
+    
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+}
+
+// Confirm delete admin
+document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+    if (!currentAdminId) return;
+    
+    const resultsDiv = document.getElementById('actionResults');
+    const modal = bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
+    
+    modal.hide();
+    
+    resultsDiv.innerHTML = `
+        <div class="alert alert-info">
+            <i class="fas fa-spinner fa-spin me-2"></i>
+            Deleting admin account...
+        </div>
+    `;
+    
+    fetch('/admin/delete_admin', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ admin_id: currentAdminId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            resultsDiv.innerHTML = `
+                <div class="alert alert-success alert-dismissible fade show">
+                    <i class="fas fa-check-circle me-2"></i>
+                    <strong>Success:</strong> Admin account deleted successfully!
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            // Reload page after 2 seconds
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            resultsDiv.innerHTML = `
+                <div class="alert alert-danger alert-dismissible fade show">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Error:</strong> ${data.error || 'Failed to delete admin account'}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        resultsDiv.innerHTML = `
+            <div class="alert alert-danger alert-dismissible fade show">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>Network Error:</strong> ${error.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+    });
+    
+    currentAdminId = null;
+});
+
+// Auto-refresh admin list every 30 seconds
+setInterval(() => {
+    // Only refresh if no modals are open
+    if (!document.querySelector('.modal.show')) {
+        console.log('Auto-refreshing admin list...');
+        // In a real implementation, this could fetch updated data via AJAX
+    }
+}, 30000);
+
+// Auto-hide alerts after 5 seconds
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+        const alerts = document.querySelectorAll('.alert-dismissible');
+        alerts.forEach(alert => {
+            const closeBtn = alert.querySelector('.btn-close');
+            if (closeBtn) {
+                closeBtn.click();
+            }
+        });
+    }, 5000);
+});
+</script>
+{% endblock %}

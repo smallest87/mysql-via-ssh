@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workspace Personal - MySQL via SSH Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/monokai.min.css" rel="stylesheet">
+    
+    <style>
+        .query-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .query-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .query-category-badge {
+            font-size: 0.75rem;
+        }
+        .favorite-star {
+            color: #ffc107;
+            cursor: pointer;
+        }
+        .favorite-star.inactive {
+            color: #dee2e6;
+        }
+        .CodeMirror {
+            border: 1px solid #ced4da;
+            border-radius: 0.375rem;
+            height: 200px;
+        }
+        .query-stats {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+        .execution-history {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/admin/dashboard">
+                <i class="fas fa-database me-2"></i>MySQL Admin
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text me-3">
+                    <i class="fas fa-user me-1"></i>{{ session.admin_username }} ({{ session.admin_role }})
+                </span>
+                <a class="nav-link" href="/admin/dashboard">
+                    <i class="fas fa-home me-1"></i>Dashboard
+                </a>
+                <a class="nav-link" href="/admin/logout">
+                    <i class="fas fa-sign-out-alt me-1"></i>Logout
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0">
+                            <i class="fas fa-layer-group me-2"></i>Workspace Personal
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group list-group-flush">
+                            <a href="#" class="list-group-item list-group-item-action active" data-section="queries">
+                                <i class="fas fa-code me-2"></i>Custom SQL Queries
+                                <span class="badge bg-primary rounded-pill float-end" id="query-count">0</span>
+                            </a>
+                            <a href="#" class="list-group-item list-group-item-action" data-section="favorites">
+                                <i class="fas fa-star me-2"></i>Favorites
+                                <span class="badge bg-warning rounded-pill float-end" id="favorite-count">0</span>
+                            </a>
+                            <a href="#" class="list-group-item list-group-item-action" data-section="history">
+                                <i class="fas fa-history me-2"></i>Execution History
+                            </a>
+                            <a href="#" class="list-group-item list-group-item-action" data-section="settings">
+                                <i class="fas fa-cog me-2"></i>Workspace Settings
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quick Actions -->
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-bolt me-2"></i>Quick Actions
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-primary btn-sm w-100 mb-2" onclick="showNewQueryModal()">
+                            <i class="fas fa-plus me-1"></i>New Query
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm w-100 mb-2" onclick="loadSampleQueries()">
+                            <i class="fas fa-download me-1"></i>Load Samples
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm w-100" onclick="exportQueries()">
+                            <i class="fas fa-file-export me-1"></i>Export All
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-9">
+                <!-- Custom Queries Section -->
+                <div id="queries-section" class="content-section">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4><i class="fas fa-code me-2"></i>Custom SQL Queries</h4>
+                        <div class="btn-group">
+                            <button class="btn btn-primary" onclick="showNewQueryModal()">
+                                <i class="fas fa-plus me-1"></i>New Query
+                            </button>
+                            <button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="fas fa-filter me-1"></i>Filter
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#" data-filter="all">All Categories</a></li>
+                                <li><a class="dropdown-item" href="#" data-filter="general">General</a></li>
+                                <li><a class="dropdown-item" href="#" data-filter="reports">Reports</a></li>
+                                <li><a class="dropdown-item" href="#" data-filter="analysis">Analysis</a></li>
+                                <li><a class="dropdown-item" href="#" data-filter="maintenance">Maintenance</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div id="queries-container" class="row">
+                        <!-- Queries akan di-load via AJAX -->
+                    </div>
+                </div>
+
+                <!-- Favorites Section -->
+                <div id="favorites-section" class="content-section d-none">
+                    <h4><i class="fas fa-star me-2"></i>Favorite Queries</h4>
+                    <div id="favorites-container" class="row mt-3">
+                        <!-- Favorites akan di-load via AJAX -->
+                    </div>
+                </div>
+
+                <!-- History Section -->
+                <div id="history-section" class="content-section d-none">
+                    <h4><i class="fas fa-history me-2"></i>Execution History</h4>
+                    <div class="card mt-3">
+                        <div class="card-body">
+                            <div id="history-container" class="execution-history">
+                                <!-- History akan di-load via AJAX -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Section -->
+                <div id="settings-section" class="content-section d-none">
+                    <h4><i class="fas fa-cog me-2"></i>Workspace Settings</h4>
+                    <div class="card mt-3">
+                        <div class="card-body">
+                            <form id="workspace-settings-form">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Theme</label>
+                                            <select class="form-select" name="theme">
+                                                <option value="light">Light</option>
+                                                <option value="dark">Dark</option>
+                                                <option value="auto">Auto</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Code Editor Theme</label>
+                                            <select class="form-select" name="editor_theme">
+                                                <option value="default">Default</option>
+                                                <option value="monokai">Monokai</option>
+                                                <option value="dracula">Dracula</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Auto-save Queries</label>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="auto_save" id="auto_save">
+                                                <label class="form-check-label" for="auto_save">
+                                                    Enable auto-save
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Query Execution Timeout (seconds)</label>
+                                            <input type="number" class="form-control" name="query_timeout" value="30" min="5" max="300">
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-1"></i>Save Settings
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New/Edit Query Modal -->
+    <div class="modal fade" id="queryModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-code me-2"></i>
+                        <span id="modal-title">New Query</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="query-form">
+                        <input type="hidden" id="query-id" name="query_id">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label for="query-name" class="form-label">Query Name *</label>
+                                    <input type="text" class="form-control" id="query-name" name="query_name" required>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="query-category" class="form-label">Category</label>
+                                    <select class="form-select" id="query-category" name="query_category">
+                                        <option value="general">General</option>
+                                        <option value="reports">Reports</option>
+                                        <option value="analysis">Analysis</option>
+                                        <option value="maintenance">Maintenance</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="query-description" class="form-label">Description</label>
+                            <textarea class="form-control" id="query-description" name="query_description" rows="2"></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="sql-query" class="form-label">SQL Query *</label>
+                            <textarea id="sql-query" name="sql_query" required></textarea>
+                        </div>
+                        
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="is-favorite" name="is_favorite">
+                            <label class="form-check-label" for="is-favorite">
+                                <i class="fas fa-star me-1"></i>Add to Favorites
+                            </label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" onclick="testQuery()">
+                        <i class="fas fa-play me-1"></i>Test Query
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="saveQuery()">
+                        <i class="fas fa-save me-1"></i>Save Query
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
+    
+    <script>
+        let sqlEditor;
+        let currentSection = 'queries';
+        let queries = [];
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadQueries();
+            setupSectionNavigation();
+        });
+
+        // Setup section navigation
+        function setupSectionNavigation() {
+            document.querySelectorAll('[data-section]').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const section = this.getAttribute('data-section');
+                    showSection(section);
+                });
+            });
+        }
+
+        function showSection(section) {
+            // Update active sidebar
+            document.querySelectorAll('[data-section]').forEach(link => {
+                link.classList.remove('active');
+            });
+            document.querySelector(`[data-section="${section}"]`).classList.add('active');
+            
+            // Show/hide content sections
+            document.querySelectorAll('.content-section').forEach(sec => {
+                sec.classList.add('d-none');
+            });
+            document.getElementById(`${section}-section`).classList.remove('d-none');
+            
+            currentSection = section;
+            
+            // Load data based on section
+            switch(section) {
+                case 'queries':
+                    loadQueries();
+                    break;
+                case 'favorites':
+                    loadFavorites();
+                    break;
+                case 'history':
+                    loadHistory();
+                    break;
+                case 'settings':
+                    loadSettings();
+                    break;
+            }
+        }
+
+        // Load queries
+        function loadQueries(category = 'all') {
+            fetch('/admin/api/workspace/queries')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        queries = data.queries;
+                        displayQueries(queries, category);
+                        updateCounts();
+                    } else {
+                        showAlert('Error loading queries: ' + data.message, 'danger');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('Network error', 'danger');
+                });
+        }
+
+        function displayQueries(queryList, category = 'all') {
+            const container = document.getElementById('queries-container');
+            
+            // Filter by category
+            const filteredQueries = category === 'all' ? 
+                queryList : queryList.filter(q => q.category === category);
+            
+            if (filteredQueries.length === 0) {
+                container.innerHTML = `
+                    <div class="col-12">
+                        <div class="text-center py-5 text-muted">
+                            <i class="fas fa-code fa-3x mb-3"></i>
+                            <h5>No queries found</h5>
+                            <p>Start by creating your first custom SQL query</p>
+                            <button class="btn btn-primary" onclick="showNewQueryModal()">
+                                <i class="fas fa-plus me-1"></i>Create New Query
+                            </button>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = filteredQueries.map(query => `
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card query-card h-100" data-query-id="${query.id}">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <small class="query-category-badge badge bg-secondary">${query.category}</small>
+                            <i class="fas fa-star favorite-star ${query.is_favorite ? '' : 'inactive'}" 
+                               onclick="toggleFavorite(${query.id}, event)"></i>
+                        </div>
+                        <div class="card-body">
+                            <h6 class="card-title">${query.name}</h6>
+                            <p class="card-text text-muted">${query.description || 'No description'}</p>
+                            <div class="query-stats">
+                                <small>
+                                    <i class="fas fa-play me-1"></i>Executed: ${query.execution_count} times<br>
+                                    <i class="fas fa-clock me-1"></i>Created: ${formatDate(query.created_at)}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <div class="btn-group w-100">
+                                <button class="btn btn-sm btn-outline-primary" onclick="editQuery(${query.id})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-success" onclick="executeQuery(${query.id})">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteQuery(${query.id})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Show new query modal
+        function showNewQueryModal() {
+            document.getElementById('modal-title').textContent = 'New Query';
+            document.getElementById('query-form').reset();
+            document.getElementById('query-id').value = '';
+            
+            // Initialize CodeMirror
+            if (sqlEditor) {
+                sqlEditor.toTextArea();
+            }
+            
+            const textarea = document.getElementById('sql-query');
+            sqlEditor = CodeMirror.fromTextArea(textarea, {
+                mode: 'text/x-sql',
+                theme: 'monokai',
+                lineNumbers: true,
+                autoCloseBrackets: true,
+                matchBrackets: true
+            });
+            
+            new bootstrap.Modal(document.getElementById('queryModal')).show();
+        }
+
+        // Save query
+        function saveQuery() {
+            const formData = new FormData(document.getElementById('query-form'));
+            formData.set('sql_query', sqlEditor.getValue());
+            
+            const queryId = formData.get('query_id');
+            const url = queryId ? '/admin/api/workspace/queries/update' : '/admin/api/workspace/queries/save';
+            
+            fetch(url, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('queryModal')).hide();
+                    loadQueries();
+                } else {
+                    showAlert(data.message, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('Network error', 'danger');
+            });
+        }
+
+        // Toggle favorite
+        function toggleFavorite(queryId, event) {
+            event.stopPropagation();
+            
+            fetch('/admin/api/workspace/queries/favorite', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({query_id: queryId})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const star = event.target;
+                    star.classList.toggle('inactive');
+                    loadQueries(); // Refresh to update counts
+                } else {
+                    showAlert(data.message, 'danger');
+                }
+            });
+        }
+
+        // Update counts in sidebar
+        function updateCounts() {
+            const totalCount = queries.length;
+            const favoriteCount = queries.filter(q => q.is_favorite).length;
+            
+            document.getElementById('query-count').textContent = totalCount;
+            document.getElementById('favorite-count').textContent = favoriteCount;
+        }
+
+        // Utility functions
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString('id-ID');
+        }
+
+        function showAlert(message, type) {
+            // Implementation for showing alerts
+            const alertHtml = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            // Add to top of main content
+            const mainContent = document.querySelector('.col-md-9');
+            mainContent.insertAdjacentHTML('afterbegin', alertHtml);
+            
+            // Auto dismiss after 5 seconds
+            setTimeout(() => {
+                const alert = mainContent.querySelector('.alert');
+                if (alert) {
+                    bootstrap.Alert.getInstance(alert).close();
+                }
+            }, 5000);
+        }
+
+        // Placeholder functions for other features
+        function loadFavorites() {
+            const favQueries = queries.filter(q => q.is_favorite);
+            displayQueries(favQueries);
+        }
+
+        function loadHistory() {
+            // TODO: Implement history loading
+        }
+
+        function loadSettings() {
+            // TODO: Implement settings loading
+        }
+
+        function editQuery(queryId) {
+            // TODO: Implement edit query
+        }
+
+        function executeQuery(queryId) {
+            // TODO: Implement query execution
+        }
+
+        function deleteQuery(queryId) {
+            if (confirm('Are you sure you want to delete this query?')) {
+                // TODO: Implement delete query
+            }
+        }
+
+        function testQuery() {
+            // TODO: Implement test query
+        }
+
+        function loadSampleQueries() {
+            // TODO: Implement sample queries loading
+        }
+
+        function exportQueries() {
+            // TODO: Implement export functionality
+        }
+
+        // Filter dropdown handlers
+        document.addEventListener('click', function(e) {
+            if (e.target.matches('[data-filter]')) {
+                e.preventDefault();
+                const filter = e.target.getAttribute('data-filter');
+                loadQueries(filter);
+            }
+        });
+    </script>
+</body>
+</html>

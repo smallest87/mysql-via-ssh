@@ -1,0 +1,353 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Registration - MySQL SSH Connection{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white text-center">
+                <h4 class="mb-0">
+                    <i class="fas fa-user-plus me-2"></i>
+                    Admin Registration
+                </h4>
+                <small>Create a new admin account</small>
+            </div>
+            <div class="card-body">
+                {% if error %}
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    {{ error }}
+                </div>
+                {% endif %}
+                
+                {% if success %}
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle me-2"></i>
+                    {{ success }}
+                </div>
+                {% endif %}
+                
+                <form method="POST" id="registrationForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="username" class="form-label">
+                                <i class="fas fa-user me-1"></i>Username <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="username" name="username" 
+                                   placeholder="Enter unique username" required minlength="3" maxlength="20"
+                                   value="{{ request.form.username if request.form.username }}">
+                            <div class="form-text">
+                                3-20 characters, alphanumeric only
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="email" class="form-label">
+                                <i class="fas fa-envelope me-1"></i>Email <span class="text-danger">*</span>
+                            </label>
+                            <input type="email" class="form-control" id="email" name="email" 
+                                   placeholder="admin@example.com" required
+                                   value="{{ request.form.email if request.form.email }}">
+                            <div class="form-text">
+                                Valid email address required
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="full_name" class="form-label">
+                            <i class="fas fa-id-card me-1"></i>Full Name <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" class="form-control" id="full_name" name="full_name" 
+                               placeholder="Enter full name" required minlength="2" maxlength="100"
+                               value="{{ request.form.full_name if request.form.full_name }}">
+                        <div class="form-text">
+                            Your complete name (2-100 characters)
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="password" class="form-label">
+                                <i class="fas fa-lock me-1"></i>Password <span class="text-danger">*</span>
+                            </label>
+                            <input type="password" class="form-control" id="password" name="password" 
+                                   placeholder="Enter secure password" required minlength="6">
+                            <div class="form-text">
+                                Minimum 6 characters
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="confirm_password" class="form-label">
+                                <i class="fas fa-lock me-1"></i>Confirm Password <span class="text-danger">*</span>
+                            </label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" 
+                                   placeholder="Confirm your password" required minlength="6">
+                            <div class="form-text">
+                                Must match password above
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="role" class="form-label">
+                            <i class="fas fa-shield-alt me-1"></i>Admin Role
+                        </label>
+                        <select class="form-select" id="role" name="role">
+                            <option value="admin" {{ 'selected' if not request.form.role or request.form.role == 'admin' }}>
+                                Regular Admin - Standard administrative privileges
+                            </option>
+                            <option value="super_admin" {{ 'selected' if request.form.role == 'super_admin' }}>
+                                Super Admin - Full system administrative privileges
+                            </option>
+                        </select>
+                        <div class="form-text">
+                            Choose appropriate role for this admin
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="terms" required>
+                            <label class="form-check-label" for="terms">
+                                I agree to the <a href="#" data-bs-toggle="modal" data-bs-target="#termsModal">Terms and Conditions</a> <span class="text-danger">*</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-user-plus me-2"></i>
+                            Create Admin Account
+                        </button>
+                        <a href="{{ url_for('admin_login') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>
+                            Back to Login
+                        </a>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer text-muted text-center">
+                <small>
+                    <i class="fas fa-info-circle me-1"></i>
+                    Admin accounts require proper authorization
+                </small>
+            </div>
+        </div>
+        
+        <!-- Registration Guidelines -->
+        <div class="card mt-3">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    Registration Guidelines
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">Username Requirements:</h6>
+                        <ul class="small">
+                            <li>3-20 characters long</li>
+                            <li>Alphanumeric characters only</li>
+                            <li>Must be unique</li>
+                            <li>No spaces or special characters</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-success">Password Security:</h6>
+                        <ul class="small">
+                            <li>Minimum 6 characters</li>
+                            <li>Use strong passwords</li>
+                            <li>Combine letters, numbers, symbols</li>
+                            <li>Avoid common passwords</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-warning">Role Differences:</h6>
+                        <ul class="small">
+                            <li><strong>Regular Admin:</strong> Standard access</li>
+                            <li><strong>Super Admin:</strong> Full system control</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-danger">Security Notes:</h6>
+                        <ul class="small">
+                            <li>Passwords are encrypted</li>
+                            <li>Login attempts are logged</li>
+                            <li>Account can be deactivated</li>
+                            <li>Use unique credentials</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Terms and Conditions Modal -->
+<div class="modal fade" id="termsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-file-contract me-2"></i>
+                    Terms and Conditions
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6>Admin Account Terms</h6>
+                <p>By creating an admin account, you agree to:</p>
+                <ul>
+                    <li>Use the admin privileges responsibly</li>
+                    <li>Keep your credentials secure and confidential</li>
+                    <li>Not share your account with unauthorized users</li>
+                    <li>Report any security issues immediately</li>
+                    <li>Follow company data protection policies</li>
+                </ul>
+                
+                <h6>System Usage</h6>
+                <ul>
+                    <li>Admin accounts are for authorized personnel only</li>
+                    <li>All admin activities are logged and monitored</li>
+                    <li>Misuse of admin privileges may result in account suspension</li>
+                    <li>Regular password updates are recommended</li>
+                </ul>
+                
+                <h6>Data Protection</h6>
+                <ul>
+                    <li>Personal data is stored securely</li>
+                    <li>Passwords are encrypted using industry standards</li>
+                    <li>Account information is used for authentication only</li>
+                    <li>Data retention follows company policies</li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Form validation
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('registrationForm');
+    const password = document.getElementById('password');
+    const confirmPassword = document.getElementById('confirm_password');
+    const username = document.getElementById('username');
+    
+    // Auto-focus on username field
+    username.focus();
+    
+    // Username validation (alphanumeric only)
+    username.addEventListener('input', function() {
+        const value = this.value;
+        const alphanumeric = /^[a-zA-Z0-9]*$/;
+        
+        if (!alphanumeric.test(value)) {
+            this.setCustomValidity('Username can only contain letters and numbers');
+            this.classList.add('is-invalid');
+        } else if (value.length < 3) {
+            this.setCustomValidity('Username must be at least 3 characters');
+            this.classList.add('is-invalid');
+        } else {
+            this.setCustomValidity('');
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+        }
+    });
+    
+    // Password confirmation validation
+    function validatePassword() {
+        if (password.value !== confirmPassword.value) {
+            confirmPassword.setCustomValidity("Passwords don't match");
+            confirmPassword.classList.add('is-invalid');
+            confirmPassword.classList.remove('is-valid');
+        } else if (confirmPassword.value.length > 0) {
+            confirmPassword.setCustomValidity('');
+            confirmPassword.classList.remove('is-invalid');
+            confirmPassword.classList.add('is-valid');
+        }
+    }
+    
+    password.addEventListener('input', validatePassword);
+    confirmPassword.addEventListener('input', validatePassword);
+    
+    // Form submission validation
+    form.addEventListener('submit', function(e) {
+        if (password.value !== confirmPassword.value) {
+            e.preventDefault();
+            alert('Password and confirmation password do not match!');
+            confirmPassword.focus();
+            return false;
+        }
+        
+        if (!document.getElementById('terms').checked) {
+            e.preventDefault();
+            alert('Please accept the Terms and Conditions!');
+            return false;
+        }
+        
+        // Show loading state
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Creating Account...';
+        submitBtn.disabled = true;
+        
+        // Re-enable button after 5 seconds (in case of error)
+        setTimeout(() => {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }, 5000);
+    });
+    
+    // Email validation enhancement
+    const email = document.getElementById('email');
+    email.addEventListener('blur', function() {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (this.value && !emailRegex.test(this.value)) {
+            this.setCustomValidity('Please enter a valid email address');
+            this.classList.add('is-invalid');
+        } else if (this.value) {
+            this.setCustomValidity('');
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+        }
+    });
+    
+    // Full name validation
+    const fullName = document.getElementById('full_name');
+    fullName.addEventListener('input', function() {
+        if (this.value.length >= 2) {
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+        }
+    });
+});
+
+// Auto-hide alerts after 5 seconds
+document.addEventListener('DOMContentLoaded', function() {
+    const alerts = document.querySelectorAll('.alert');
+    alerts.forEach(alert => {
+        setTimeout(() => {
+            alert.style.transition = 'opacity 0.5s';
+            alert.style.opacity = '0';
+            setTimeout(() => {
+                alert.remove();
+            }, 500);
+        }, 5000);
+    });
+});
+</script>
+{% endblock %}
