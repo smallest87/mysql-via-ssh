@@ -74,9 +74,25 @@ SSH_CONFIG = {
 
 ## 🚀 Penggunaan
 
-### Quick Start
+### 🌐 Flask Web UI (Recommended)
 ```bash
 # 1. Setup environment
+.venv\Scripts\activate    # Windows
+pip install -r requirements.txt
+
+# 2. Setup kredensial (untuk development)
+cp config/config.py config/config_local.py    # Edit dengan kredensial asli
+
+# 3. Start Flask Web Interface
+python run_flask_ui.py
+
+# Browser akan otomatis terbuka ke http://127.0.0.1:5000
+# Interface web yang user-friendly untuk MySQL SSH connections!
+```
+
+### 💻 Command Line Interface
+```bash
+# 1. Setup environment  
 .venv\Scripts\activate    # Windows
 pip install -r requirements.txt
 

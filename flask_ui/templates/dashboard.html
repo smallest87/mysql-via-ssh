@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - MySQL SSH Connection{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>
+            <i class="fas fa-tachometer-alt text-primary me-2"></i>
+            Dashboard - Connection Active
+        </h2>
+        <p class="text-muted">Manage your MySQL database through secure SSH tunnel</p>
+        <hr>
+    </div>
+</div>
+
+<!-- Connection Info -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card border-success">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Connection Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">SSH Server</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Host:</strong> {{ connection_info.ssh_config.host }}</li>
+                            <li><strong>Port:</strong> {{ connection_info.ssh_config.port }}</li>
+                            <li><strong>Username:</strong> {{ connection_info.ssh_config.username }}</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-success">MySQL Database</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Host:</strong> {{ connection_info.mysql_config.host }}</li>
+                            <li><strong>Port:</strong> {{ connection_info.mysql_config.port }}</li>
+                            <li><strong>Username:</strong> {{ connection_info.mysql_config.username }}</li>
+                            {% if connection_info.mysql_config.database %}
+                            <li><strong>Database:</strong> {{ connection_info.mysql_config.database }}</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+                <hr>
+                <p class="mb-0">
+                    <small class="text-muted">
+                        <i class="fas fa-clock me-1"></i>
+                        Connected since: {{ connection_info.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                    </small>
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h6 class="mb-0">
+                    <i class="fas fa-tools me-2"></i>
+                    Quick Actions
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('query') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-code me-2"></i>
+                        Run SQL Query
+                    </a>
+                    <button type="button" class="btn btn-outline-info" onclick="loadDatabases()">
+                        <i class="fas fa-database me-2"></i>
+                        Show Databases
+                    </button>
+                    <button type="button" class="btn btn-outline-success" onclick="loadTables()">
+                        <i class="fas fa-table me-2"></i>
+                        Show Tables
+                    </button>
+                    <hr>
+                    <a href="{{ url_for('disconnect') }}" class="btn btn-outline-danger" 
+                       onclick="return confirm('Are you sure you want to disconnect?')">
+                        <i class="fas fa-sign-out-alt me-2"></i>
+                        Disconnect
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Database & Tables Info -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-database me-2"></i>
+                    Databases
+                    <button class="btn btn-sm btn-outline-primary float-end" onclick="loadDatabases()">
+                        <i class="fas fa-refresh"></i>
+                    </button>
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="databasesList">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-mouse-pointer me-2"></i>
+                        Click "Show Databases" to load
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-table me-2"></i>
+                    Tables
+                    <button class="btn btn-sm btn-outline-success float-end" onclick="loadTables()">
+                        <i class="fas fa-refresh"></i>
+                    </button>
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="tablesList">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-mouse-pointer me-2"></i>
+                        Click "Show Tables" to load
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Help Section -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <h6><i class="fas fa-lightbulb me-2"></i>Tips:</h6>
+            <ul class="mb-0">
+                <li>Use the <strong>Query</strong> page to run custom SQL commands</li>
+                <li>Databases and tables are loaded on-demand for better performance</li>
+                <li>Your connection is secure through SSH tunnel encryption</li>
+                <li>Always disconnect properly when finished</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function loadDatabases() {
+    const container = document.getElementById('databasesList');
+    container.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+    
+    fetch('/api/get_databases')
+        .then(response => response.json())
+        .then(data => {
+            if (data.databases) {
+                if (data.databases.length > 0) {
+                    const html = data.databases.map(db => 
+                        `<span class="badge bg-primary me-1 mb-1">${db}</span>`
+                    ).join('');
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<div class="text-muted">No databases found</div>';
+                }
+            } else {
+                container.innerHTML = `<div class="text-danger">Error: ${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            container.innerHTML = `<div class="text-danger">Error loading databases: ${error}</div>`;
+        });
+}
+
+function loadTables() {
+    const container = document.getElementById('tablesList');
+    container.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+    
+    fetch('/api/get_tables')
+        .then(response => response.json())
+        .then(data => {
+            if (data.tables) {
+                if (data.tables.length > 0) {
+                    const html = data.tables.map(table => 
+                        `<span class="badge bg-success me-1 mb-1">${table}</span>`
+                    ).join('');
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<div class="text-muted">No tables found</div>';
+                }
+            } else {
+                container.innerHTML = `<div class="text-danger">Error: ${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            container.innerHTML = `<div class="text-danger">Error loading tables: ${error}</div>`;
+        });
+}
+</script>
+{% endblock %}

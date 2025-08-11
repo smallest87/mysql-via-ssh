@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+
+{% block title %}SQL Query - MySQL SSH Connection{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>
+            <i class="fas fa-code text-primary me-2"></i>
+            SQL Query Executor
+        </h2>
+        <p class="text-muted">Execute SQL queries safely through your SSH tunnel connection</p>
+        <hr>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-terminal me-2"></i>
+                    Query Input
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="queryForm">
+                    <div class="mb-3">
+                        <label for="queryText" class="form-label">SQL Query:</label>
+                        <textarea class="form-control query-editor" id="queryText" rows="8" 
+                                  placeholder="Enter your SQL query here...&#10;Example: SELECT * FROM users LIMIT 10;"></textarea>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Type your SQL query above. Use semicolon to separate multiple statements.
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearQuery()">
+                                <i class="fas fa-eraser me-1"></i>Clear
+                            </button>
+                            <button type="button" class="btn btn-outline-info btn-sm" data-template="show-databases">
+                                <i class="fas fa-database me-1"></i>Show DBs
+                            </button>
+                            <button type="button" class="btn btn-outline-success btn-sm" data-template="show-tables">
+                                <i class="fas fa-table me-1"></i>Show Tables
+                            </button>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-play me-2"></i>
+                            Execute Query
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    Quick Templates
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm" data-template="show-databases">
+                        SHOW DATABASES
+                    </button>
+                    <button type="button" class="btn btn-outline-success btn-sm" data-template="show-tables">
+                        SHOW TABLES
+                    </button>
+                    <button type="button" class="btn btn-outline-info btn-sm" data-template="describe-table">
+                        DESCRIBE table_name
+                    </button>
+                    <button type="button" class="btn btn-outline-warning btn-sm" data-template="select-all">
+                        SELECT * FROM table_name
+                    </button>
+                </div>
+                
+                <hr>
+                
+                <h6 class="text-muted">Common Commands:</h6>
+                <small class="text-muted">
+                    <ul class="list-unstyled">
+                        <li><code>SHOW DATABASES;</code></li>
+                        <li><code>USE database_name;</code></li>
+                        <li><code>SHOW TABLES;</code></li>
+                        <li><code>DESC table_name;</code></li>
+                        <li><code>SELECT * FROM table LIMIT 10;</code></li>
+                    </ul>
+                </small>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header bg-warning text-dark">
+                <h6 class="mb-0">
+                    <i class="fas fa-shield-alt me-2"></i>
+                    Safety Notice
+                </h6>
+            </div>
+            <div class="card-body">
+                <small>
+                    <ul class="mb-0">
+                        <li>Always backup before running UPDATE/DELETE</li>
+                        <li>Use LIMIT for large result sets</li>
+                        <li>Test queries on development first</li>
+                        <li>Connection is secure via SSH tunnel</li>
+                    </ul>
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Results Section -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-table me-2"></i>
+                    Query Results
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="queryResults">
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-play-circle fa-3x mb-3"></i>
+                        <p>Execute a query to see results here</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Setup query templates
+document.addEventListener('DOMContentLoaded', function() {
+    const templates = {
+        'show-databases': 'SHOW DATABASES;',
+        'show-tables': 'SHOW TABLES;',
+        'describe-table': 'DESCRIBE table_name;',
+        'select-all': 'SELECT * FROM table_name LIMIT 10;'
+    };
+
+    // Setup template buttons
+    document.querySelectorAll('[data-template]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const template = this.getAttribute('data-template');
+            const textarea = document.getElementById('queryText');
+            if (textarea && templates[template]) {
+                textarea.value = templates[template];
+                textarea.focus();
+            }
+        });
+    });
+
+    // Setup form submission
+    document.getElementById('queryForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const queryText = document.getElementById('queryText').value.trim();
+        if (!queryText) {
+            alert('Please enter a SQL query');
+            return;
+        }
+
+        const resultsContainer = document.getElementById('queryResults');
+        resultsContainer.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Executing query...</div>';
+
+        fetch('/api/execute_query', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ query: queryText })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayQueryResults(data.data, data.message);
+            } else {
+                resultsContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Error:</strong> ${data.error}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            resultsContainer.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Network Error:</strong> ${error}
+                </div>
+            `;
+        });
+    });
+});
+
+function clearQuery() {
+    document.getElementById('queryText').value = '';
+    document.getElementById('queryText').focus();
+}
+
+function displayQueryResults(data, message) {
+    const resultsContainer = document.getElementById('queryResults');
+    
+    if (!data || data.length === 0) {
+        resultsContainer.innerHTML = `
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                ${message || 'Query executed successfully with no results.'}
+            </div>
+        `;
+        return;
+    }
+
+    // Create table
+    let html = `
+        <div class="alert alert-success">
+            <i class="fas fa-check-circle me-2"></i>
+            ${message || `Query returned ${data.length} row(s)`}
+        </div>
+        <div class="table-responsive query-results">
+            <table class="table table-striped table-hover table-sm">
+                <thead class="table-dark">
+                    <tr>
+    `;
+
+    // Table headers
+    const headers = Object.keys(data[0]);
+    headers.forEach(header => {
+        html += `<th>${header}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+
+    // Table rows (limit to 100 for performance)
+    const displayData = data.slice(0, 100);
+    displayData.forEach(row => {
+        html += '<tr>';
+        headers.forEach(header => {
+            const value = row[header];
+            const displayValue = value !== null && value !== undefined ? 
+                (typeof value === 'string' && value.length > 50 ? value.substring(0, 50) + '...' : value) : 
+                '<span class="text-muted">NULL</span>';
+            html += `<td>${displayValue}</td>`;
+        });
+        html += '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    
+    if (data.length > 100) {
+        html += `
+            <div class="alert alert-warning">
+                <i class="fas fa-info-circle me-2"></i>
+                Showing first 100 rows of ${data.length} total results.
+            </div>
+        `;
+    }
+    
+    resultsContainer.innerHTML = html;
+}
+</script>
+{% endblock %}

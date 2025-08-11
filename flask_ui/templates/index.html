@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}MySQL SSH Connection - Home{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-link me-2"></i>
+                    Buat Koneksi MySQL SSH
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('connect') }}" id="connectionForm">
+                    <!-- SSH Configuration -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5 class="text-primary">
+                                <i class="fas fa-server me-2"></i>
+                                Konfigurasi SSH Server
+                            </h5>
+                            <hr>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="ssh_host" class="form-label">
+                                    <i class="fas fa-globe me-1"></i>
+                                    SSH Host/IP *
+                                </label>
+                                <input type="text" class="form-control" id="ssh_host" name="ssh_host" 
+                                       placeholder="contoh: server.example.com" required>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="ssh_port" class="form-label">
+                                    <i class="fas fa-plug me-1"></i>
+                                    SSH Port
+                                </label>
+                                <input type="number" class="form-control" id="ssh_port" name="ssh_port" 
+                                       value="22" min="1" max="65535">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="ssh_username" class="form-label">
+                                    <i class="fas fa-user me-1"></i>
+                                    SSH Username *
+                                </label>
+                                <input type="text" class="form-control" id="ssh_username" name="ssh_username" 
+                                       placeholder="username SSH" required>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="ssh_password" class="form-label">
+                                    <i class="fas fa-lock me-1"></i>
+                                    SSH Password *
+                                </label>
+                                <input type="password" class="form-control" id="ssh_password" name="ssh_password" 
+                                       placeholder="password SSH" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MySQL Configuration -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5 class="text-success">
+                                <i class="fas fa-database me-2"></i>
+                                Konfigurasi MySQL Database
+                            </h5>
+                            <hr>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="mysql_host" class="form-label">
+                                    <i class="fas fa-server me-1"></i>
+                                    MySQL Host
+                                </label>
+                                <input type="text" class="form-control" id="mysql_host" name="mysql_host" 
+                                       value="localhost" placeholder="localhost">
+                                <div class="form-text">Biasanya localhost karena melalui SSH tunnel</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="mysql_port" class="form-label">
+                                    <i class="fas fa-plug me-1"></i>
+                                    MySQL Port
+                                </label>
+                                <input type="number" class="form-control" id="mysql_port" name="mysql_port" 
+                                       value="3306" min="1" max="65535">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="mysql_username" class="form-label">
+                                    <i class="fas fa-user me-1"></i>
+                                    MySQL Username *
+                                </label>
+                                <input type="text" class="form-control" id="mysql_username" name="mysql_username" 
+                                       placeholder="username MySQL" required>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="mysql_password" class="form-label">
+                                    <i class="fas fa-lock me-1"></i>
+                                    MySQL Password *
+                                </label>
+                                <input type="password" class="form-control" id="mysql_password" name="mysql_password" 
+                                       placeholder="password MySQL" required>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="mysql_database" class="form-label">
+                                    <i class="fas fa-database me-1"></i>
+                                    Database Name
+                                </label>
+                                <input type="text" class="form-control" id="mysql_database" name="mysql_database" 
+                                       placeholder="nama database (opsional)">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Security Notice -->
+                    <div class="alert alert-warning" role="alert">
+                        <i class="fas fa-shield-alt me-2"></i>
+                        <strong>Keamanan:</strong> 
+                        Kredensial Anda tidak akan disimpan secara permanen. 
+                        Session akan berakhir saat browser ditutup atau disconnect.
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg" id="connectBtn">
+                            <i class="fas fa-link me-2"></i>
+                            Buat Koneksi
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Help Section -->
+<div class="row mt-5">
+    <div class="col-md-10 mx-auto">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-question-circle me-2"></i>
+                    Bantuan & Informasi
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-server text-primary"></i> SSH Configuration</h6>
+                        <ul class="list-unstyled ms-3">
+                            <li><i class="fas fa-chevron-right text-muted me-1"></i> Host: IP atau hostname server SSH</li>
+                            <li><i class="fas fa-chevron-right text-muted me-1"></i> Port: Biasanya 22 (default)</li>
+                            <li><i class="fas fa-chevron-right text-muted me-1"></i> Username/Password: Kredensial SSH Anda</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-database text-success"></i> MySQL Configuration</h6>
+                        <ul class="list-unstyled ms-3">
+                            <li><i class="fas fa-chevron-right text-muted me-1"></i> Host: Biasanya localhost (via tunnel)</li>
+                            <li><i class="fas fa-chevron-right text-muted me-1"></i> Port: Default MySQL adalah 3306</li>
+                            <li><i class="fas fa-chevron-right text-muted me-1"></i> Database: Opsional, bisa diisi nanti</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="text-center">
+                    <p class="mb-2">
+                        <strong>Need help?</strong> 
+                        <a href="https://github.com/smallest87/mysql-ssh-connection" target="_blank" class="btn btn-outline-primary btn-sm">
+                            <i class="fab fa-github me-1"></i>
+                            Documentation
+                        </a>
+                        <a href="https://github.com/smallest87/mysql-ssh-connection/blob/main/SUPPORT.md" target="_blank" class="btn btn-outline-success btn-sm">
+                            <i class="fas fa-heart me-1"></i>
+                            Support Project
+                        </a>
+                    </p>
+                    <small class="text-muted">
+                        Created by <strong>Julian Sukrisna</strong> (Javasatu.com) with ❤️
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.getElementById('connectionForm').addEventListener('submit', function(e) {
+    const connectBtn = document.getElementById('connectBtn');
+    connectBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Connecting...';
+    connectBtn.disabled = true;
+});
+</script>
+{% endblock %}
