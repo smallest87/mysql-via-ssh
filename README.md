@@ -18,9 +18,27 @@ Script Python untuk koneksi ke database MySQL melalui SSH tunnel. Berguna ketika
 pip install -r requirements.txt
 ```
 
-## Konfigurasi
+## 🔐 Konfigurasi Keamanan
 
-Edit file `config.py` dengan detail koneksi Anda:
+**⚠️ PENTING: Jangan pernah commit kredensial asli ke repository!**
+
+### Setup Kredensial
+
+**Option A: Local Config File (Development)**
+```bash
+# Copy template dan edit dengan kredensial asli
+cp config/config.py config/config_local.py
+# Edit config_local.py dengan kredensial asli
+# File ini sudah ada di .gitignore
+```
+
+**Option B: Environment Variables (Production)**
+```bash
+# Copy template dan edit dengan kredensial asli
+cp .env.template .env
+# Edit .env dengan kredensial asli  
+# File ini sudah ada di .gitignore
+```
 
 ### SSH Configuration
 ```python
@@ -54,12 +72,50 @@ SSH_CONFIG = {
 }
 ```
 
-## Penggunaan
+## 🚀 Penggunaan
+
+### Quick Start
+```bash
+# 1. Setup environment
+.venv\Scripts\activate    # Windows
+pip install -r requirements.txt
+
+# 2. Setup kredensial (pilih salah satu)
+cp config/config.py config/config_local.py    # Edit dengan kredensial asli
+cp .env.template .env                          # Edit dengan kredensial asli
+
+# 3. Run aplikasi
+python main.py
+```
+
+### Menjalankan Contoh
+```bash
+# Metode 1: Entry point utama
+python main.py
+
+# Metode 2: Alternative runner
+python run_example.py
+
+# Metode 3: Dari folder examples
+cd examples && python example_usage.py
+```
+
+### Development
+```bash
+# Install dalam development mode
+pip install -e .
+
+# Run tests
+python -m unittest discover tests
+
+# Build package
+python -m build
+```
 
 ### Basic Usage
 ```python
-from mysql_ssh_connection import MySQLSSHConnection
-from config import SSH_CONFIG, MYSQL_CONFIG
+from src.database.mysql_ssh_connection import MySQLSSHConnection
+from config.config import SSH_CONFIG, MYSQL_CONFIG
 
 # Buat koneksi
 mysql_ssh = MySQLSSHConnection(SSH_CONFIG, MYSQL_CONFIG)
@@ -80,10 +136,13 @@ python example_usage.py
 
 ## File Structure
 
-- `mysql_ssh_connection.py` - Class utama untuk koneksi
-- `config.py` - Konfigurasi SSH dan MySQL
-- `example_usage.py` - Contoh penggunaan dan test
-- `requirements.txt` - Dependencies yang dibutuhkan
+- `src/database/mysql_ssh_connection.py` - Class utama untuk koneksi
+- `config/config.py` - Konfigurasi SSH dan MySQL
+- `examples/example_usage.py` - Contoh penggunaan dan test
+- `tests/test_mysql_ssh_connection.py` - Unit tests
+- `docs/` - Dokumentasi lengkap
+- `main.py` - Entry point utama
+- `run_example.py` - Alternative runner untuk examples
 
 ## Operasi yang Didukung
 
@@ -113,12 +172,16 @@ mysql_ssh.execute_query(
 mysql_ssh.execute_query("DELETE FROM users WHERE id = %s", (1,))
 ```
 
-## Security Tips
+## 🔐 Security Tips
+
+**📖 Baca panduan lengkap: [SECURITY.md](docs/SECURITY.md)**
 
 1. **Gunakan Private Key**: Lebih aman dari password
-2. **Environment Variables**: Simpan kredensial di environment variables
-3. **Firewall**: Pastikan server SSH dan MySQL dikonfigurasi dengan benar
-4. **VPN**: Pertimbangkan menggunakan VPN untuk keamanan ekstra
+2. **Environment Variables**: Simpan kredensial di environment variables  
+3. **Config Local**: Gunakan `config_local.py` untuk development
+4. **Never Commit Credentials**: Jangan pernah commit kredensial ke repository
+5. **Firewall**: Pastikan server SSH dan MySQL dikonfigurasi dengan benar
+6. **VPN**: Pertimbangkan menggunakan VPN untuk keamanan ekstra
 
 ## Troubleshooting
 
@@ -143,3 +206,56 @@ mysql_ssh.execute_query("DELETE FROM users WHERE id = %s", (1,))
 2024-01-01 10:00:02 - mysql_ssh_connection - INFO - Menghubungkan ke MySQL database...
 2024-01-01 10:00:03 - mysql_ssh_connection - INFO - Koneksi MySQL berhasil!
 ```
+
+## 📚 Documentation
+
+Dokumentasi lengkap tersedia di folder [`docs/`](docs/):
+
+- [🔐 Security Guide](docs/SECURITY.md) - **Panduan keamanan kredensial**
+- [📁 Structure Guide](docs/STRUCTURE.md) - Struktur proyek dan organisasi
+- [🔧 Build Setup](docs/BUILD_SETUP.md) - Setup system dan build tools  
+- [🔧 Import Solutions](docs/IMPORT_SOLUTION.md) - Solusi masalah import
+
+## 👨‍💻 Author
+
+**Created by Julian Sukrisna**
+- 📧 Email: smallest87@gmail.com
+- 🐙 GitHub: [@smallest87](https://github.com/smallest87)
+- 🏢 Organization: Javasatu.com
+- 📅 Created: August 2025
+
+## 📖 Project Story
+
+Baca cerita lengkap di balik pengembangan proyek ini di [STORY.md](STORY.md) - perjalanan profesional, tantangan ekonomi, dan visi masa depan proyek ini.
+
+## 💝 Support This Project
+
+Proyek ini dikembangkan dengan dedikasi tinggi untuk memberikan solusi koneksi database yang aman dan profesional. Dalam masa ekonomi yang menantang, dukungan Anda sangat berarti untuk keberlanjutan pengembangan.
+
+### 🎯 **Mengapa Mendukung Proyek Ini?**
+- Memastikan pemeliharaan dan keamanan berkelanjutan
+- Mendukung pengembangan fitur-fitur baru
+- Membantu stabilitas ekonomi developer di masa sulit
+- Berkontribusi pada ekosistem open source Indonesia
+
+### 💰 **Cara Mendukung:**
+- 💳 **Donasi**: Lihat detail di [SUPPORT.md](SUPPORT.md)
+- ⭐ **GitHub Star**: Berikan star pada repository ini
+- 📢 **Share**: Bagikan ke developer lain
+- 🤝 **Contribute**: Lihat [CONTRIBUTING.md](CONTRIBUTING.md)
+
+**Setiap dukungan, sekecil apapun, sangat berarti untuk keberlanjutan proyek ini.** 🙏
+
+## 🤝 Contributing
+
+Ingin berkontribusi? Silakan baca [CONTRIBUTING.md](CONTRIBUTING.md) untuk guidelines development.
+
+Lihat juga [AUTHORS.md](AUTHORS.md) untuk daftar lengkap kontributor.
+
+## 📄 License
+
+Project ini menggunakan [MIT License](LICENSE).
+
+---
+
+**Happy Coding!** 🚀

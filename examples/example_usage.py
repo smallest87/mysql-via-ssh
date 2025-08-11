@@ -39,7 +39,17 @@ setup_paths()
 # Import modules
 try:
     from database.mysql_ssh_connection import MySQLSSHConnection
-    from config import SSH_CONFIG, MYSQL_CONFIG, LOGGING_CONFIG
+    
+    # Import konfigurasi dengan prioritas config_local
+    try:
+        # Coba import config_local terlebih dahulu (untuk development)
+        from config.config_local import SSH_CONFIG, MYSQL_CONFIG, LOGGING_CONFIG
+        print("✅ Using local configuration...")
+    except ImportError:
+        # Fallback ke config template (untuk production/demo)
+        from config.config import SSH_CONFIG, MYSQL_CONFIG, LOGGING_CONFIG
+        print("⚠️  Using template configuration. Please set environment variables or create config_local.py")
+        
 except ImportError as e:
     print(f"❌ Import Error: {e}")
     print("💡 Pastikan Anda menjalankan script dari folder yang benar:")

@@ -1,6 +1,15 @@
 """
 MySQL Connection via SSH Tunnel
 Script untuk koneksi ke database MySQL melalui SSH tunnel
+
+Author: Julian Sukrisna
+Email: smallest87@gmail.com
+GitHub: https://github.com/smallest87
+Organization: Javasatu.com
+Created: 2025
+License: MIT
+
+Copyright (c) 2025 Julian Sukrisna. All rights reserved.
 """
 
 import pymysql

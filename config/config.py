@@ -1,27 +1,39 @@
 """
 Konfigurasi untuk koneksi MySQL via SSH
 Pisahkan konfigurasi dari kode utama untuk keamanan
+
+Author: Julian Sukrisna
+Created: August 2025
+License: MIT
+
+PENTING: Jangan pernah commit kredensial asli ke GitHub!
+- Copy file ini ke config_local.py
+- Edit config_local.py dengan kredensial asli
+- config_local.py sudah ada di .gitignore
 """
 
-# Konfigurasi SSH Server
+import os
+from typing import Dict, Any
+
+# Template konfigurasi SSH Server
 SSH_CONFIG = {
-    'host': '148.230.96.48',           # IP atau hostname server SSH
-    'port': 22,                          # Port SSH (default: 22)
-    'username': 'root',     # Username SSH
-    'password': 'ManganBeras12##',     # Password SSH
+    'host': os.getenv('SSH_HOST', 'your-ssh-server.com'),
+    'port': int(os.getenv('SSH_PORT', '22')),
+    'username': os.getenv('SSH_USERNAME', 'your-ssh-username'),
+    'password': os.getenv('SSH_PASSWORD', 'your-ssh-password'),
     
     # Alternatif: gunakan private key (lebih aman)
-    # 'private_key_path': '/path/to/your/private/key',
-    # 'private_key_password': 'your_key_password',  # jika private key punya password
+    # 'private_key_path': os.getenv('SSH_PRIVATE_KEY_PATH', '/path/to/your/private/key'),
+    # 'private_key_password': os.getenv('SSH_PRIVATE_KEY_PASSWORD', 'your_key_password'),
 }
 
-# Konfigurasi MySQL Database
+# Template konfigurasi MySQL Database
 MYSQL_CONFIG = {
-    'host': 'localhost',                 # Host MySQL di server remote (biasanya localhost)
-    'port': 3306,                        # Port MySQL (default: 3306)
-    'username': 'smallest87',   # Username MySQL
-    'password': 'Rekues76#@Yes',   # Password MySQL
-    'database': 'insanpersdb',    # Nama database
+    'host': os.getenv('MYSQL_HOST', 'localhost'),
+    'port': int(os.getenv('MYSQL_PORT', '3306')),
+    'username': os.getenv('MYSQL_USERNAME', 'your-mysql-username'),
+    'password': os.getenv('MYSQL_PASSWORD', 'your-mysql-password'),
+    'database': os.getenv('MYSQL_DATABASE', 'your-database-name'),
 }
 
 # Konfigurasi logging

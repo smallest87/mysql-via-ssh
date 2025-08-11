@@ -1,5 +1,9 @@
 """
 Main entry point untuk MySQL SSH Connection
+
+Author: Julian Sukrisna
+Created: August 2025
+License: MIT
 """
 
 import sys
@@ -12,7 +16,16 @@ sys.path.append(os.path.join(current_dir, 'src'))
 sys.path.append(os.path.join(current_dir, 'config'))
 
 from src.database.mysql_ssh_connection import MySQLSSHConnection
-from config.config import SSH_CONFIG, MYSQL_CONFIG, LOGGING_CONFIG
+
+# Import konfigurasi dengan prioritas config_local
+try:
+    # Coba import config_local terlebih dahulu (untuk development)
+    from config.config_local import SSH_CONFIG, MYSQL_CONFIG, LOGGING_CONFIG
+    print("✅ Using local configuration...")
+except ImportError:
+    # Fallback ke config template (untuk production/demo)
+    from config.config import SSH_CONFIG, MYSQL_CONFIG, LOGGING_CONFIG
+    print("⚠️  Using template configuration. Please set environment variables or create config_local.py")
 
 # Setup logging
 logging.basicConfig(
