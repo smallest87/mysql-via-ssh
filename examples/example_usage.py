@@ -1,17 +1,51 @@
 """
 Contoh penggunaan MySQL SSH Connection
+
+Untuk menjalankan file ini dari folder examples:
+1. cd examples
+2. python example_usage.py
+
+Atau jalankan dari root directory:
+python -m examples.example_usage
 """
 
 import sys
 import os
 import logging
 
-# Tambahkan path src ke Python path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'config'))
+# Setup path untuk import
+def setup_paths():
+    """Setup Python path untuk import modules"""
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Jika dijalankan dari folder examples
+    if os.path.basename(current_dir) == 'examples':
+        project_root = os.path.dirname(current_dir)
+    else:
+        # Jika dijalankan dari root project
+        project_root = current_dir
+    
+    src_path = os.path.join(project_root, 'src')
+    config_path = os.path.join(project_root, 'config')
+    
+    if src_path not in sys.path:
+        sys.path.insert(0, src_path)
+    if config_path not in sys.path:
+        sys.path.insert(0, config_path)
 
-from database.mysql_ssh_connection import MySQLSSHConnection
-from config import SSH_CONFIG, MYSQL_CONFIG, LOGGING_CONFIG
+# Setup paths before importing
+setup_paths()
+
+# Import modules
+try:
+    from database.mysql_ssh_connection import MySQLSSHConnection
+    from config import SSH_CONFIG, MYSQL_CONFIG, LOGGING_CONFIG
+except ImportError as e:
+    print(f"❌ Import Error: {e}")
+    print("💡 Pastikan Anda menjalankan script dari folder yang benar:")
+    print("   - Dari folder examples: cd examples && python example_usage.py")
+    print("   - Dari root project: python run_example.py")
+    sys.exit(1)
 
 # Setup logging
 logging.basicConfig(

@@ -28,6 +28,11 @@ wheels/
 *.egg
 MANIFEST
 
+# Build artifacts
+*.whl
+*.tar.gz
+src/*.egg-info/
+
 # PyInstaller
 *.manifest
 *.spec
