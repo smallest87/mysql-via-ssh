@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSH Configurations - MySQL SSH UI</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.1/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        .config-item {
+            transition: all 0.3s ease;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        .config-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .config-item.active {
+            border-color: #0d6efd;
+            background-color: #f8f9ff;
+        }
+        .config-status {
+            font-size: 0.8rem;
+            padding: 3px 10px;
+            border-radius: 12px;
+        }
+        .status-active {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status-inactive {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('admin_dashboard') }}">
+                <i class="fas fa-database me-2"></i>MySQL SSH UI
+            </a>
+            
+            <div class="navbar-nav ms-auto">
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-user-circle me-1"></i>
+                        {{ session.admin_full_name or session.admin_username }}
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{{ url_for('admin_dashboard') }}">
+                            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                        </a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin_workspace') }}">
+                            <i class="fas fa-tools me-2"></i>Workspace
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin_logout') }}">
+                            <i class="fas fa-sign-out-alt me-2"></i>Logout
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Header -->
+    <div class="bg-primary text-white py-4">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-server me-2"></i>SSH Configurations
+                    </h1>
+                    <p class="mb-0 opacity-75">Manage your SSH server configurations</p>
+                </div>
+                <a href="{{ url_for('admin_ssh_config_new') }}" class="btn btn-light">
+                    <i class="fas fa-plus me-2"></i>Add New Configuration
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container mt-4">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="row">
+            <div class="col-12">
+                {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <!-- Configurations List -->
+        <div class="row">
+            <div class="col-12">
+                {% if ssh_configs %}
+                    {% for config in ssh_configs %}
+                    <div class="config-item {{ 'active' if config.is_active else '' }} p-4">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center">
+                                    <div class="me-3">
+                                        <i class="fas fa-server fa-2x text-primary"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="mb-1 fw-bold">{{ config.name }}</h5>
+                                        <div class="text-muted small">
+                                            <i class="fas fa-globe me-1"></i>{{ config.ssh_host }}:{{ config.ssh_port }}
+                                            <span class="mx-2">•</span>
+                                            <i class="fas fa-user me-1"></i>{{ config.ssh_username }}
+                                        </div>
+                                        <div class="text-muted small">
+                                            <i class="fas fa-database me-1"></i>{{ config.mysql_database }} on {{ config.mysql_host }}:{{ config.mysql_port }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-2">
+                                    <span class="config-status {{ 'status-active' if config.is_active else 'status-inactive' }}">
+                                        {{ 'Active' if config.is_active else 'Inactive' }}
+                                    </span>
+                                </div>
+                                {% if config.description %}
+                                <div class="text-muted small">{{ config.description }}</div>
+                                {% endif %}
+                                <div class="text-muted small">
+                                    <i class="fas fa-calendar me-1"></i>
+                                    {% if config.created_at %}
+                                        {% if config.created_at is string %}
+                                            {{ config.created_at }}
+                                        {% else %}
+                                            {{ config.created_at.strftime('%d %b %Y') }}
+                                        {% endif %}
+                                    {% else %}
+                                        Unknown
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-3 text-end">
+                                <div class="btn-group" role="group">
+                                    {% if config.is_active %}
+                                    <a href="{{ url_for('admin_workspace') }}" class="btn btn-success btn-sm">
+                                        <i class="fas fa-play me-1"></i>Open
+                                    </a>
+                                    {% else %}
+                                    <a href="{{ url_for('admin_select_config', config_id=config.id) }}" class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-check me-1"></i>Select
+                                    </a>
+                                    {% endif %}
+                                    <button class="btn btn-outline-info btn-sm test-connection-btn" data-config-id="{{ config.id }}">
+                                        <i class="fas fa-plug me-1"></i>Test
+                                    </button>
+                                    <a href="{{ url_for('admin_ssh_config_edit', config_id=config.id) }}" class="btn btn-outline-secondary btn-sm">
+                                        <i class="fas fa-edit me-1"></i>Edit
+                                    </a>
+                                    <button class="btn btn-outline-danger btn-sm delete-config-btn" data-config-id="{{ config.id }}" data-config-name="{{ config.name }}">
+                                        <i class="fas fa-trash me-1"></i>Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <!-- No Configurations -->
+                    <div class="text-center py-5">
+                        <i class="fas fa-server fa-4x text-muted mb-4"></i>
+                        <h4 class="text-muted">No SSH Configurations Found</h4>
+                        <p class="text-muted mb-4">Create your first SSH configuration to start managing MySQL databases.</p>
+                        <a href="{{ url_for('admin_ssh_config_new') }}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-plus me-2"></i>Create First Configuration
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Test Connection Modal -->
+    <div class="modal fade" id="testModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Test Connection</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="testResult">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Testing...</span>
+                            </div>
+                            <p class="mt-2">Testing connection...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Deletion</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete the SSH configuration "<strong id="deleteConfigName"></strong>"?</p>
+                    <p class="text-danger small">This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        function testConnection(configId) {
+            const modal = new bootstrap.Modal(document.getElementById('testModal'));
+            modal.show();
+            
+            // Reset modal content
+            document.getElementById('testResult').innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Testing...</span>
+                    </div>
+                    <p class="mt-2">Testing connection...</p>
+                </div>
+            `;
+            
+            fetch('/admin/ssh-configs/' + configId + '/test', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                let resultHtml = '';
+                if (data.success) {
+                    resultHtml = `
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong>Connection Successful!</strong><br>
+                            ${data.message || 'SSH and MySQL connections are working properly.'}
+                        </div>
+                    `;
+                } else {
+                    resultHtml = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            <strong>Connection Failed!</strong><br>
+                            ${data.message || 'Unable to establish connection.'}
+                        </div>
+                    `;
+                }
+                document.getElementById('testResult').innerHTML = resultHtml;
+            })
+            .catch(error => {
+                document.getElementById('testResult').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <strong>Error!</strong><br>
+                        Failed to test connection: ${error.message}
+                    </div>
+                `;
+            });
+        }
+
+        function deleteConfig(configId, configName) {
+            document.getElementById('deleteConfigName').textContent = configName;
+            const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+            modal.show();
+            
+            document.getElementById('confirmDeleteBtn').onclick = function() {
+                fetch('/admin/ssh-configs/' + configId + '/delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.reload();
+                    } else {
+                        alert('Error deleting configuration: ' + (data.message || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    alert('Error deleting configuration: ' + error.message);
+                });
+                modal.hide();
+            };
+        }
+
+        // Event listeners for buttons with data attributes
+        document.addEventListener('DOMContentLoaded', function() {
+            // Test connection buttons
+            document.querySelectorAll('.test-connection-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const configId = this.getAttribute('data-config-id');
+                    testConnection(configId);
+                });
+            });
+            
+            // Delete config buttons
+            document.querySelectorAll('.delete-config-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const configId = this.getAttribute('data-config-id');
+                    const configName = this.getAttribute('data-config-name');
+                    deleteConfig(configId, configName);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

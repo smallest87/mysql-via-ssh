@@ -80,6 +80,14 @@ import os
 from datetime import datetime
 import logging
 from typing import Optional, List, Dict, Any
+try:
+    from .ssh_encryption import SSHConfigEncryption
+except ImportError:
+    # Fallback for direct execution
+    try:
+        from ssh_encryption import SSHConfigEncryption
+    except ImportError:
+        SSHConfigEncryption = None
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -139,6 +147,43 @@ class AdminDB:
                         FOREIGN KEY (admin_id) REFERENCES admin_users (id)
                     )
                 ''')
+                
+                # Create admin_ssh_configs table untuk konfigurasi SSH per admin
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS admin_ssh_configs (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        admin_id INTEGER NOT NULL,
+                        name TEXT NOT NULL,
+                        ssh_host TEXT NOT NULL,
+                        ssh_port INTEGER DEFAULT 22,
+                        ssh_username TEXT NOT NULL,
+                        ssh_password TEXT NOT NULL,
+                        mysql_host TEXT DEFAULT 'localhost',
+                        mysql_port INTEGER DEFAULT 3306,
+                        mysql_username TEXT NOT NULL,
+                        mysql_password TEXT NOT NULL,
+                        mysql_database TEXT DEFAULT '',
+                        description TEXT DEFAULT '',
+                        is_active BOOLEAN DEFAULT 1,
+                        is_default BOOLEAN DEFAULT 0,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        last_used TIMESTAMP NULL,
+                        FOREIGN KEY (admin_id) REFERENCES admin_users(id),
+                        UNIQUE(admin_id, name)
+                    )
+                ''')
+                
+                # Add missing columns if they don't exist (for existing databases)
+                try:
+                    cursor.execute("ALTER TABLE admin_ssh_configs ADD COLUMN name TEXT")
+                except sqlite3.OperationalError:
+                    pass  # Column already exists
+                
+                try:
+                    cursor.execute("ALTER TABLE admin_ssh_configs ADD COLUMN description TEXT DEFAULT ''")
+                except sqlite3.OperationalError:
+                    pass  # Column already exists
                 
                 # Create default admin if not exists
                 self._create_default_admin()
@@ -648,6 +693,458 @@ class AdminDB:
         except Exception as e:
             logger.error(f"Error menyimpan workspace setting: {e}")
             return {'success': False, 'message': f'Error: {e}'}
+    
+    # =====================================
+    # SSH Configuration Management Methods
+    # =====================================
+    
+    def save_ssh_config(self, admin_id, config_data):
+        """Simpan SSH configuration untuk admin (menggunakan dict)"""
+        try:
+            from .ssh_encryption import ssh_encryption
+            
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Extract data from dict
+                config_name = config_data.get('name')
+                ssh_host = config_data.get('ssh_host')
+                ssh_port = config_data.get('ssh_port', 22)
+                ssh_username = config_data.get('ssh_username')
+                ssh_password = config_data.get('ssh_password')
+                mysql_host = config_data.get('mysql_host', 'localhost')
+                mysql_port = config_data.get('mysql_port', 3306)
+                mysql_username = config_data.get('mysql_username')
+                mysql_password = config_data.get('mysql_password')
+                mysql_database = config_data.get('mysql_database', '')
+                description = config_data.get('description', '')
+                is_active = config_data.get('is_active', False)
+                
+                # If this is set as active, unset other active configs
+                if is_active:
+                    cursor.execute('''
+                        UPDATE admin_ssh_configs 
+                        SET is_active = 0 
+                        WHERE admin_id = ?
+                    ''', (admin_id,))
+                
+                # Encrypt passwords
+                encrypted_ssh_password = ssh_encryption.encrypt_password(ssh_password)
+                encrypted_mysql_password = ssh_encryption.encrypt_password(mysql_password)
+                
+                cursor.execute('''
+                    INSERT INTO admin_ssh_configs 
+                    (admin_id, name, ssh_host, ssh_port, ssh_username, ssh_password,
+                     mysql_host, mysql_port, mysql_username, mysql_password, mysql_database,
+                     description, is_active, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ''', (admin_id, config_name, ssh_host, ssh_port, ssh_username, encrypted_ssh_password,
+                      mysql_host, mysql_port, mysql_username, encrypted_mysql_password, mysql_database,
+                      description, is_active))
+                
+                config_id = cursor.lastrowid
+                logger.info(f"SSH config '{config_name}' saved for admin {admin_id}")
+                return {'success': True, 'config_id': config_id, 'message': 'SSH configuration berhasil disimpan'}
+                
+        except sqlite3.IntegrityError as e:
+            if 'UNIQUE constraint failed' in str(e):
+                return {'success': False, 'message': f'Configuration dengan nama "{config_name}" sudah ada'}
+            return {'success': False, 'message': f'Error database: {e}'}
+        except Exception as e:
+            logger.error(f"Error menyimpan SSH config: {e}")
+            return {'success': False, 'message': f'Error: {e}'}
+    
+    def get_admin_ssh_configs(self, admin_id, include_passwords=False):
+        """Ambil semua SSH configurations untuk admin"""
+        try:
+            from .ssh_encryption import ssh_encryption
+            
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                # Try with new column names first, fallback to old names
+                try:
+                    cursor.execute('''
+                        SELECT id, name, ssh_host, ssh_port, ssh_username, ssh_password,
+                               mysql_host, mysql_port, mysql_username, mysql_password, mysql_database,
+                               description, is_active, is_default, created_at, updated_at, last_used
+                        FROM admin_ssh_configs 
+                        WHERE admin_id = ?
+                        ORDER BY is_default DESC, name ASC
+                    ''', (admin_id,))
+                except sqlite3.OperationalError:
+                    # Fallback to old column names
+                    cursor.execute('''
+                        SELECT id, config_name as name, ssh_host, ssh_port, ssh_username, ssh_password,
+                               mysql_host, mysql_port, mysql_username, mysql_password, mysql_database,
+                               '' as description, is_active, is_default, created_at, updated_at, last_used
+                        FROM admin_ssh_configs 
+                        WHERE admin_id = ?
+                        ORDER BY is_default DESC, config_name ASC
+                    ''', (admin_id,))
+                
+                configs = []
+                for row in cursor.fetchall():
+                    config = dict(row)
+                    
+                    if include_passwords and ssh_encryption:
+                        # Decrypt passwords
+                        try:
+                            config['ssh_password'] = ssh_encryption.decrypt_password(config['ssh_password'])
+                            config['mysql_password'] = ssh_encryption.decrypt_password(config['mysql_password'])
+                        except:
+                            config['ssh_password'] = '[Encrypted]'
+                            config['mysql_password'] = '[Encrypted]'
+                    else:
+                        config['ssh_password'] = '[Hidden]'
+                        config['mysql_password'] = '[Hidden]'
+                    
+                    configs.append(config)
+                
+                return configs
+                
+        except Exception as e:
+            logger.error(f"Error get admin SSH configs: {e}")
+            return []
+    
+    def get_ssh_config_by_id(self, admin_id, config_id, include_passwords=True):
+        """Ambil SSH configuration by ID"""
+        try:
+            from .ssh_encryption import ssh_encryption
+            
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    SELECT id, config_name, ssh_host, ssh_port, ssh_username, ssh_password,
+                           mysql_host, mysql_port, mysql_username, mysql_password, mysql_database,
+                           is_active, is_default, created_at, updated_at, last_used
+                    FROM admin_ssh_configs 
+                    WHERE id = ? AND admin_id = ? AND is_active = 1
+                ''', (config_id, admin_id))
+                
+                row = cursor.fetchone()
+                if not row:
+                    return {'success': False, 'message': 'SSH configuration tidak ditemukan'}
+                
+                config = {
+                    'id': row[0],
+                    'config_name': row[1],
+                    'ssh_host': row[2],
+                    'ssh_port': row[3],
+                    'ssh_username': row[4],
+                    'mysql_host': row[6],
+                    'mysql_port': row[7],
+                    'mysql_username': row[8],
+                    'mysql_database': row[10],
+                    'is_active': bool(row[11]),
+                    'is_default': bool(row[12]),
+                    'created_at': row[13],
+                    'updated_at': row[14],
+                    'last_used': row[15]
+                }
+                
+                # Include passwords if requested and decrypt them
+                if include_passwords:
+                    config['ssh_password'] = ssh_encryption.decrypt_password(row[5])
+                    config['mysql_password'] = ssh_encryption.decrypt_password(row[9])
+                
+                return {'success': True, 'config': config}
+                
+        except Exception as e:
+            logger.error(f"Error mengambil SSH config by ID: {e}")
+            return {'success': False, 'message': f'Error: {e}'}
+    
+    def update_ssh_config(self, admin_id, config_id, config_data):
+        """Update SSH configuration (menggunakan dict)"""
+        try:
+            from .ssh_encryption import ssh_encryption
+            
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Extract data from dict
+                config_name = config_data.get('name')
+                ssh_host = config_data.get('ssh_host')
+                ssh_port = config_data.get('ssh_port', 22)
+                ssh_username = config_data.get('ssh_username')
+                ssh_password = config_data.get('ssh_password')
+                mysql_host = config_data.get('mysql_host', 'localhost')
+                mysql_port = config_data.get('mysql_port', 3306)
+                mysql_username = config_data.get('mysql_username')
+                mysql_password = config_data.get('mysql_password')
+                mysql_database = config_data.get('mysql_database', '')
+                description = config_data.get('description', '')
+                is_active = config_data.get('is_active', False)
+                
+                # Pastikan config milik admin yang benar
+                cursor.execute('''
+                    SELECT id FROM admin_ssh_configs 
+                    WHERE id = ? AND admin_id = ?
+                ''', (config_id, admin_id))
+                
+                if not cursor.fetchone():
+                    return {'success': False, 'message': 'SSH configuration tidak ditemukan'}
+                
+                # If this is set as active, unset other active configs
+                if is_active:
+                    cursor.execute('''
+                        UPDATE admin_ssh_configs 
+                        SET is_active = 0 
+                        WHERE admin_id = ? AND id != ?
+                    ''', (admin_id, config_id))
+                
+                # Encrypt passwords if provided
+                update_fields = []
+                update_values = []
+                
+                if ssh_password:
+                    encrypted_ssh_password = ssh_encryption.encrypt_password(ssh_password)
+                    update_fields.append("ssh_password = ?")
+                    update_values.append(encrypted_ssh_password)
+                
+                if mysql_password:
+                    encrypted_mysql_password = ssh_encryption.encrypt_password(mysql_password)
+                    update_fields.append("mysql_password = ?")
+                    update_values.append(encrypted_mysql_password)
+                
+                # Always update other fields
+                base_updates = [
+                    "name = ?", "ssh_host = ?", "ssh_port = ?", "ssh_username = ?",
+                    "mysql_host = ?", "mysql_port = ?", "mysql_username = ?", 
+                    "mysql_database = ?", "description = ?", "is_active = ?", "updated_at = CURRENT_TIMESTAMP"
+                ]
+                
+                base_values = [config_name, ssh_host, ssh_port, ssh_username,
+                              mysql_host, mysql_port, mysql_username, mysql_database, 
+                              description, is_active]
+                
+                all_updates = base_updates + update_fields
+                all_values = base_values + update_values + [config_id, admin_id]
+                
+                # Update config
+                cursor.execute(f'''
+                    UPDATE admin_ssh_configs 
+                    SET {', '.join(all_updates)}
+                    WHERE id = ? AND admin_id = ?
+                ''', all_values)
+                
+                logger.info(f"SSH config '{config_name}' updated by admin {admin_id}")
+                return {'success': True, 'message': 'SSH configuration berhasil diperbarui'}
+                
+        except Exception as e:
+            logger.error(f"Error update SSH config: {e}")
+            return {'success': False, 'message': f'Error: {e}'}
+    
+    def delete_ssh_config(self, admin_id, config_id):
+        """Hapus SSH configuration (soft delete)"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Pastikan config milik admin yang benar
+                cursor.execute('''
+                    SELECT config_name FROM admin_ssh_configs 
+                    WHERE id = ? AND admin_id = ?
+                ''', (config_id, admin_id))
+                
+                result = cursor.fetchone()
+                if not result:
+                    return {'success': False, 'message': 'SSH configuration tidak ditemukan'}
+                
+                config_name = result[0]
+                
+                # Soft delete
+                cursor.execute('''
+                    UPDATE admin_ssh_configs 
+                    SET is_active = 0, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND admin_id = ?
+                ''', (config_id, admin_id))
+                
+                logger.info(f"SSH config '{config_name}' deleted by admin {admin_id}")
+                return {'success': True, 'message': 'SSH configuration berhasil dihapus'}
+                
+        except Exception as e:
+            logger.error(f"Error delete SSH config: {e}")
+            return {'success': False, 'message': f'Error: {e}'}
+    
+    def set_default_ssh_config(self, admin_id, config_id):
+        """Set SSH configuration sebagai default"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Pastikan config milik admin yang benar
+                cursor.execute('''
+                    SELECT config_name FROM admin_ssh_configs 
+                    WHERE id = ? AND admin_id = ? AND is_active = 1
+                ''', (config_id, admin_id))
+                
+                result = cursor.fetchone()
+                if not result:
+                    return {'success': False, 'message': 'SSH configuration tidak ditemukan'}
+                
+                config_name = result[0]
+                
+                # Unset all defaults for this admin
+                cursor.execute('''
+                    UPDATE admin_ssh_configs 
+                    SET is_default = 0 
+                    WHERE admin_id = ?
+                ''', (admin_id,))
+                
+                # Set this config as default
+                cursor.execute('''
+                    UPDATE admin_ssh_configs 
+                    SET is_default = 1, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND admin_id = ?
+                ''', (config_id, admin_id))
+                
+                logger.info(f"SSH config '{config_name}' set as default by admin {admin_id}")
+                return {'success': True, 'message': f'SSH configuration "{config_name}" berhasil diset sebagai default'}
+                
+        except Exception as e:
+            logger.error(f"Error set default SSH config: {e}")
+            return {'success': False, 'message': f'Error: {e}'}
+    
+    def update_ssh_config_last_used(self, admin_id, config_id):
+        """Update last_used timestamp untuk SSH config"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    UPDATE admin_ssh_configs 
+                    SET last_used = CURRENT_TIMESTAMP
+                    WHERE id = ? AND admin_id = ?
+                ''', (config_id, admin_id))
+                
+                return {'success': True}
+                
+        except Exception as e:
+            logger.error(f"Error update last_used SSH config: {e}")
+            return {'success': False, 'message': f'Error: {e}'}
+    
+    def get_active_ssh_config(self, admin_id):
+        """Mendapatkan SSH config yang sedang aktif untuk admin (yang terakhir digunakan)"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                # Ambil config yang terakhir digunakan
+                cursor.execute('''
+                    SELECT * FROM admin_ssh_configs 
+                    WHERE admin_id = ?
+                    ORDER BY last_used DESC, updated_at DESC
+                    LIMIT 1
+                ''', (admin_id,))
+                
+                config = cursor.fetchone()
+                if config:
+                    config_dict = dict(config)
+                    # Decrypt passwords
+                    ssh_encryption = SSHConfigEncryption()
+                    config_dict['ssh_password'] = ssh_encryption.decrypt_password(config_dict['ssh_password'])
+                    config_dict['mysql_password'] = ssh_encryption.decrypt_password(config_dict['mysql_password'])
+                    return config_dict
+                    
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error get active SSH config: {e}")
+            return None
+    
+    def activate_ssh_config(self, admin_id, config_id):
+        """Aktivasi SSH config (set last_used ke sekarang)"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Set last_used ke sekarang untuk config yang dipilih
+                cursor.execute('''
+                    UPDATE admin_ssh_configs 
+                    SET last_used = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND admin_id = ?
+                ''', (config_id, admin_id))
+                
+                # Ambil nama config untuk feedback
+                cursor.execute('SELECT name FROM admin_ssh_configs WHERE id = ?', (config_id,))
+                result = cursor.fetchone()
+                config_name = result[0] if result else 'Unknown'
+                
+                return {'success': True, 'message': f'SSH Configuration "{config_name}" activated', 'config_name': config_name}
+                
+        except Exception as e:
+            logger.error(f"Error activate SSH config: {e}")
+            return {'success': False, 'message': f'Error: {e}'}
+    
+    def deactivate_ssh_config(self, admin_id, config_id):
+        """Deaktivasi SSH config (set last_used ke NULL)"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    UPDATE admin_ssh_configs 
+                    SET last_used = NULL, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND admin_id = ?
+                ''', (config_id, admin_id))
+                
+                return {'success': True, 'message': 'SSH Configuration deactivated'}
+                
+        except Exception as e:
+            logger.error(f"Error deactivate SSH config: {e}")
+            return {'success': False, 'message': f'Error: {e}'}
+    
+    def test_ssh_connection(self, admin_id, config_id):
+        """Test koneksi SSH dan MySQL"""
+        try:
+            config = self.get_ssh_config_by_id(admin_id, config_id, include_passwords=True)
+            if not config:
+                return {'success': False, 'message': 'SSH configuration not found'}
+            
+            # Import untuk testing
+            import sys
+            import os
+            sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+            from mysql_ssh_connection import MySQLSSHConnection
+            
+            # Setup config untuk testing
+            ssh_config = {
+                'host': config['ssh_host'],
+                'port': config['ssh_port'],
+                'username': config['ssh_username'],
+                'password': config['ssh_password']
+            }
+            
+            mysql_config = {
+                'host': config['mysql_host'],
+                'port': config['mysql_port'],
+                'username': config['mysql_username'],
+                'password': config['mysql_password'],
+                'database': config['mysql_database']
+            }
+            
+            # Test connection
+            mysql_ssh = MySQLSSHConnection(ssh_config, mysql_config)
+            
+            if mysql_ssh.connect():
+                # Test simple query
+                result = mysql_ssh.execute_query("SELECT 1 as test")
+                mysql_ssh.disconnect()
+                
+                if result is not None:
+                    return {'success': True, 'message': 'SSH and MySQL connections successful!'}
+                else:
+                    return {'success': False, 'message': 'SSH connected but MySQL query failed'}
+            else:
+                return {'success': False, 'message': 'Failed to establish SSH or MySQL connection'}
+                
+        except Exception as e:
+            logger.error(f"Error test SSH connection: {e}")
+            return {'success': False, 'message': f'Connection test failed: {str(e)}'}
 
 # Global instance
 admin_db = AdminDB()

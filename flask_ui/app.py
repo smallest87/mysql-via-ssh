@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 from database.mysql_ssh_connection import MySQLSSHConnection
 from database.admin_db import admin_db
+from database.ssh_encryption import SSHConfigEncryption
 
 class MySQLSSHFlaskApp:
     def __init__(self):
@@ -44,27 +45,42 @@ class MySQLSSHFlaskApp:
         
         @self.app.route('/')
         def index():
-            """Homepage dengan form koneksi"""
-            return render_template('index.html')
+            """Homepage - redirect ke admin login untuk multi-tenant access"""
+            if not session.get('admin_logged_in'):
+                return redirect(url_for('admin_login'))
+            else:
+                return redirect(url_for('admin_dashboard'))
         
         @self.app.route('/connect', methods=['POST'])
         def connect():
-            """Endpoint untuk membuat koneksi SSH + MySQL"""
+            """Endpoint untuk membuat koneksi SSH + MySQL menggunakan config admin"""
             try:
-                # Ambil data dari form
+                # Pastikan admin sudah login
+                admin_user_id = session.get('admin_user_id')
+                if not admin_user_id:
+                    return jsonify({'error': 'Admin not logged in'}), 401
+                
+                # Ambil SSH config aktif dari database
+                active_config = admin_db.get_active_ssh_config(admin_user_id)
+                if not active_config:
+                    return jsonify({'error': 'No active SSH configuration found. Please select one first.'}), 400
+                
+                # Decrypt passwords
+                ssh_encryption = SSHConfigEncryption()
+                
                 ssh_config = {
-                    'host': request.form.get('ssh_host'),
-                    'port': int(request.form.get('ssh_port', 22)),
-                    'username': request.form.get('ssh_username'),
-                    'password': request.form.get('ssh_password'),
+                    'host': active_config['ssh_host'],
+                    'port': active_config['ssh_port'],
+                    'username': active_config['ssh_username'],
+                    'password': ssh_encryption.decrypt_password(active_config['ssh_password']),
                 }
                 
                 mysql_config = {
-                    'host': request.form.get('mysql_host', 'localhost'),
-                    'port': int(request.form.get('mysql_port', 3306)),
-                    'username': request.form.get('mysql_username'),
-                    'password': request.form.get('mysql_password'),
-                    'database': request.form.get('mysql_database'),
+                    'host': active_config['mysql_host'],
+                    'port': active_config['mysql_port'],
+                    'username': active_config['mysql_username'],
+                    'password': ssh_encryption.decrypt_password(active_config['mysql_password']),
+                    'database': active_config['mysql_database'],
                 }
                 
                 # Buat koneksi
@@ -416,65 +432,6 @@ class MySQLSSHFlaskApp:
             else:
                 return jsonify({'success': False, 'error': 'Failed to delete admin account'})
         
-        @self.app.route('/admin/dashboard')
-        def admin_dashboard():
-            """Admin dashboard - requires login"""
-            if not session.get('admin_logged_in'):
-                flash('Please login as admin first.', 'warning')
-                return redirect(url_for('admin_login'))
-            
-            # Get real statistics
-            admin_stats = admin_db.get_admin_stats()
-            stats = {
-                'active_connections': len(self.active_connections),
-                'total_queries': 247,  # Could be made dynamic
-                'uptime': '2d 14h',    # Could be made dynamic
-                'admin_sessions': admin_stats['total_active']
-            }
-            
-            # Generate dummy recent activities (could be made dynamic)
-            recent_activities = [
-                {
-                    'time': '10:30:15',
-                    'action': 'Database Query',
-                    'user': 'Guest User',
-                    'status': 'Success',
-                    'status_class': 'success'
-                },
-                {
-                    'time': '10:25:42',
-                    'action': 'SSH Connection',
-                    'user': 'Guest User',
-                    'status': 'Connected',
-                    'status_class': 'info'
-                },
-                {
-                    'time': '10:22:18',
-                    'action': 'Admin Login',
-                    'user': session.get('admin_full_name', 'admin'),
-                    'status': 'Success',
-                    'status_class': 'success'
-                },
-                {
-                    'time': '10:15:33',
-                    'action': 'Database Query',
-                    'user': 'Guest User',
-                    'status': 'Error',
-                    'status_class': 'danger'
-                },
-                {
-                    'time': '10:12:07',
-                    'action': 'Export Data',
-                    'user': 'Guest User',
-                    'status': 'Completed',
-                    'status_class': 'success'
-                }
-            ]
-            
-            return render_template('admin_dashboard.html', 
-                                 stats=stats, 
-                                 recent_activities=recent_activities)
-        
         @self.app.route('/admin/logout')
         def admin_logout():
             """Admin logout"""
@@ -483,6 +440,38 @@ class MySQLSSHFlaskApp:
             session.pop('admin_login_time', None)
             flash('Logout admin berhasil.', 'info')
             return redirect(url_for('index'))
+        
+        @self.app.route('/admin/dashboard')
+        def admin_dashboard():
+            """Admin dashboard - pilih SSH config atau buat baru"""
+            if not session.get('admin_logged_in'):
+                return redirect(url_for('admin_login'))
+            
+            admin_id = session.get('admin_user_id')
+            ssh_configs = admin_db.get_admin_ssh_configs(admin_id)
+            
+            # Jika admin punya konfigurasi SSH aktif, redirect ke workspace
+            active_config = admin_db.get_active_ssh_config(admin_id)
+            if active_config:
+                return redirect(url_for('admin_workspace'))
+            
+            return render_template('admin_dashboard.html', ssh_configs=ssh_configs)
+        
+        @self.app.route('/admin/select-config/<int:config_id>')
+        def admin_select_config(config_id):
+            """Pilih SSH config untuk digunakan"""
+            if not session.get('admin_logged_in'):
+                return redirect(url_for('admin_login'))
+            
+            admin_id = session.get('admin_user_id')
+            result = admin_db.activate_ssh_config(admin_id, config_id)
+            
+            if result['success']:
+                flash(f'SSH Configuration activated: {result.get("config_name", "")}', 'success')
+                return redirect(url_for('admin_workspace'))
+            else:
+                flash(f'Error activating config: {result.get("message", "")}', 'error')
+                return redirect(url_for('admin_dashboard'))
         
         # ============= WORKSPACE PERSONAL ROUTES =============
         
@@ -493,9 +482,16 @@ class MySQLSSHFlaskApp:
                 flash('Please login to access admin workspace.', 'warning')
                 return redirect(url_for('admin_login'))
             
+            admin_user_id = session.get('admin_user_id')
+            
+            # Cek apakah admin sudah memilih SSH configuration
+            active_config = admin_db.get_active_ssh_config(admin_user_id)
+            if not active_config:
+                flash('Please select SSH configuration first.', 'warning')
+                return redirect(url_for('admin_dashboard'))
+            
             # Ensure session data completeness for workspace
             admin_role = session.get('admin_role')
-            admin_user_id = session.get('admin_user_id')
             has_role = admin_role is not None and admin_role != ''
             has_user_id = admin_user_id is not None and admin_user_id != ''
             
@@ -534,7 +530,8 @@ class MySQLSSHFlaskApp:
                 admin_user_id=session.get('admin_user_id'),
                 admin_username=session.get('admin_username'),
                 admin_role=session.get('admin_role'),
-                admin_full_name=session.get('admin_full_name')
+                admin_full_name=session.get('admin_full_name'),
+                active_ssh_config=active_config
             )
         
         @self.app.route('/admin/api/workspace/queries')
@@ -721,6 +718,121 @@ class MySQLSSHFlaskApp:
                 return jsonify({'success': False, 'message': 'Query ID is required'})
             
             result = admin_db.delete_custom_query(admin_id, query_id)
+            return jsonify(result)
+        
+        # ============= SSH CONFIGURATION MANAGEMENT =============
+        
+        @self.app.route('/admin/ssh-configs')
+        def admin_ssh_configs():
+            """Halaman management SSH configurations untuk admin"""
+            if not session.get('admin_logged_in'):
+                return redirect(url_for('admin_login'))
+            
+            admin_id = session.get('admin_user_id')
+            ssh_configs = admin_db.get_admin_ssh_configs(admin_id)
+            return render_template('admin_ssh_configs.html', ssh_configs=ssh_configs)
+        
+        @self.app.route('/admin/ssh-configs/new', methods=['GET', 'POST'])
+        def admin_ssh_config_new():
+            """Form untuk menambah SSH configuration baru"""
+            if not session.get('admin_logged_in'):
+                return redirect(url_for('admin_login'))
+            
+            admin_id = session.get('admin_user_id')
+            
+            if request.method == 'POST':
+                data = request.json
+                config_data = {
+                    'name': data.get('name'),
+                    'ssh_host': data.get('ssh_host'),
+                    'ssh_port': data.get('ssh_port', 22),
+                    'ssh_username': data.get('ssh_username'),
+                    'ssh_password': data.get('ssh_password'),
+                    'mysql_host': data.get('mysql_host', 'localhost'),
+                    'mysql_port': data.get('mysql_port', 3306),
+                    'mysql_username': data.get('mysql_username'),
+                    'mysql_password': data.get('mysql_password'),
+                    'mysql_database': data.get('mysql_database'),
+                    'description': data.get('description', ''),
+                    'is_active': data.get('is_active', True)
+                }
+                
+                result = admin_db.save_ssh_config(admin_id, config_data)
+                return jsonify(result)
+            
+            return render_template('admin_ssh_config_form.html', config=None, action='new')
+        
+        @self.app.route('/admin/ssh-configs/<int:config_id>/edit', methods=['GET', 'POST'])
+        def admin_ssh_config_edit(config_id):
+            """Form untuk edit SSH configuration"""
+            admin_id = session.get('admin_id')
+            if not admin_id:
+                return redirect(url_for('admin_login'))
+            
+            if request.method == 'POST':
+                data = request.json
+                config_data = {
+                    'name': data.get('name'),
+                    'ssh_host': data.get('ssh_host'),
+                    'ssh_port': data.get('ssh_port', 22),
+                    'ssh_username': data.get('ssh_username'),
+                    'ssh_password': data.get('ssh_password'),
+                    'mysql_host': data.get('mysql_host', 'localhost'),
+                    'mysql_port': data.get('mysql_port', 3306),
+                    'mysql_username': data.get('mysql_username'),
+                    'mysql_password': data.get('mysql_password'),
+                    'mysql_database': data.get('mysql_database'),
+                    'description': data.get('description', ''),
+                    'is_active': data.get('is_active', True)
+                }
+                
+                result = admin_db.update_ssh_config(admin_id, config_id, config_data)
+                return jsonify(result)
+            
+            config = admin_db.get_ssh_config_by_id(admin_id, config_id)
+            if not config:
+                return redirect(url_for('admin_ssh_configs'))
+            
+            return render_template('admin_ssh_config_form.html', config=config, action='edit')
+        
+        @self.app.route('/admin/ssh-configs/<int:config_id>/delete', methods=['POST'])
+        def admin_ssh_config_delete(config_id):
+            """Delete SSH configuration"""
+            admin_id = session.get('admin_id')
+            if not admin_id:
+                return jsonify({'success': False, 'message': 'Unauthorized'})
+            
+            result = admin_db.delete_ssh_config(admin_id, config_id)
+            return jsonify(result)
+        
+        @self.app.route('/admin/ssh-configs/<int:config_id>/test', methods=['POST'])
+        def admin_ssh_config_test(config_id):
+            """Test SSH connection"""
+            admin_id = session.get('admin_id')
+            if not admin_id:
+                return jsonify({'success': False, 'message': 'Unauthorized'})
+            
+            result = admin_db.test_ssh_connection(admin_id, config_id)
+            return jsonify(result)
+        
+        @self.app.route('/admin/ssh-configs/<int:config_id>/activate', methods=['POST'])
+        def admin_ssh_config_activate(config_id):
+            """Activate SSH configuration"""
+            admin_id = session.get('admin_id')
+            if not admin_id:
+                return jsonify({'success': False, 'message': 'Unauthorized'})
+            
+            result = admin_db.activate_ssh_config(admin_id, config_id)
+            return jsonify(result)
+        
+        @self.app.route('/admin/ssh-configs/<int:config_id>/deactivate', methods=['POST'])
+        def admin_ssh_config_deactivate(config_id):
+            """Deactivate SSH configuration"""
+            admin_id = session.get('admin_id')
+            if not admin_id:
+                return jsonify({'success': False, 'message': 'Unauthorized'})
+            
+            result = admin_db.deactivate_ssh_config(admin_id, config_id)
             return jsonify(result)
         
         # ============= ERROR HANDLERS =============

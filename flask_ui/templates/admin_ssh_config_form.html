@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ 'Edit' if config else 'New' }} SSH Configuration - MySQL SSH UI</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.1/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        .form-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .form-section h5 {
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 0.5rem;
+        }
+        .password-toggle {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('admin_dashboard') }}">
+                <i class="fas fa-database me-2"></i>MySQL SSH UI
+            </a>
+            
+            <div class="navbar-nav ms-auto">
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-user-circle me-1"></i>
+                        {{ session.admin_full_name or session.admin_username }}
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{{ url_for('admin_dashboard') }}">
+                            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                        </a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin_ssh_configs') }}">
+                            <i class="fas fa-server me-2"></i>SSH Configurations
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin_logout') }}">
+                            <i class="fas fa-sign-out-alt me-2"></i>Logout
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Header -->
+    <div class="bg-primary text-white py-4">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-{{ 'edit' if config else 'plus' }} me-2"></i>{{ 'Edit' if config else 'New' }} SSH Configuration
+                    </h1>
+                    <p class="mb-0 opacity-75">{{ 'Update existing' if config else 'Create new' }} SSH server configuration</p>
+                </div>
+                <a href="{{ url_for('admin_ssh_configs') }}" class="btn btn-light">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Configurations
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container mt-4">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="row">
+            <div class="col-12">
+                {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <!-- Form -->
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <form id="sshConfigForm">
+                    <!-- General Information -->
+                    <div class="form-section">
+                        <h5><i class="fas fa-info-circle me-2"></i>General Information</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="name" class="form-label">Configuration Name <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="name" name="name" 
+                                           value="{{ config.name if config else '' }}" required>
+                                    <div class="form-text">A unique name to identify this configuration</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="description" class="form-label">Description</label>
+                                    <input type="text" class="form-control" id="description" name="description" 
+                                           value="{{ config.description if config else '' }}">
+                                    <div class="form-text">Optional description for this configuration</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="is_active" name="is_active" 
+                                       {{ 'checked' if (config and config.is_active) or not config else '' }}>
+                                <label class="form-check-label" for="is_active">
+                                    Active Configuration
+                                </label>
+                                <div class="form-text">Mark this configuration as active</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SSH Server Configuration -->
+                    <div class="form-section">
+                        <h5><i class="fas fa-server me-2"></i>SSH Server Configuration</h5>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label for="ssh_host" class="form-label">SSH Host <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="ssh_host" name="ssh_host" 
+                                           value="{{ config.ssh_host if config else '' }}" required>
+                                    <div class="form-text">SSH server hostname or IP address</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="ssh_port" class="form-label">SSH Port</label>
+                                    <input type="number" class="form-control" id="ssh_port" name="ssh_port" 
+                                           value="{{ config.ssh_port if config else '22' }}" min="1" max="65535">
+                                    <div class="form-text">Default: 22</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="ssh_username" class="form-label">SSH Username <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="ssh_username" name="ssh_username" 
+                                           value="{{ config.ssh_username if config else '' }}" required>
+                                    <div class="form-text">SSH login username</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="ssh_password" class="form-label">SSH Password <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="ssh_password" name="ssh_password" 
+                                               value="{{ '' if config else '' }}" required>
+                                        <button class="btn btn-outline-secondary password-toggle" type="button" onclick="togglePassword('ssh_password')">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                    <div class="form-text">{{ 'Leave empty to keep current password' if config else 'SSH login password' }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MySQL Database Configuration -->
+                    <div class="form-section">
+                        <h5><i class="fas fa-database me-2"></i>MySQL Database Configuration</h5>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label for="mysql_host" class="form-label">MySQL Host</label>
+                                    <input type="text" class="form-control" id="mysql_host" name="mysql_host" 
+                                           value="{{ config.mysql_host if config else 'localhost' }}">
+                                    <div class="form-text">MySQL server hostname (usually localhost)</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="mysql_port" class="form-label">MySQL Port</label>
+                                    <input type="number" class="form-control" id="mysql_port" name="mysql_port" 
+                                           value="{{ config.mysql_port if config else '3306' }}" min="1" max="65535">
+                                    <div class="form-text">Default: 3306</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="mysql_username" class="form-label">MySQL Username <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="mysql_username" name="mysql_username" 
+                                           value="{{ config.mysql_username if config else '' }}" required>
+                                    <div class="form-text">MySQL login username</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="mysql_password" class="form-label">MySQL Password <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="mysql_password" name="mysql_password" 
+                                               value="{{ '' if config else '' }}" required>
+                                        <button class="btn btn-outline-secondary password-toggle" type="button" onclick="togglePassword('mysql_password')">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                    <div class="form-text">{{ 'Leave empty to keep current password' if config else 'MySQL login password' }}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="mysql_database" class="form-label">MySQL Database <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="mysql_database" name="mysql_database" 
+                                           value="{{ config.mysql_database if config else '' }}" required>
+                                    <div class="form-text">Default database to connect to</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Form Actions -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('admin_ssh_configs') }}" class="btn btn-secondary">
+                            <i class="fas fa-times me-2"></i>Cancel
+                        </a>
+                        <div>
+                            <button type="button" class="btn btn-info me-2" onclick="testConfiguration()">
+                                <i class="fas fa-plug me-2"></i>Test Connection
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>{{ 'Update' if config else 'Create' }} Configuration
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Test Connection Modal -->
+    <div class="modal fade" id="testModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Test Connection</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="testResult">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Testing...</span>
+                            </div>
+                            <p class="mt-2">Testing connection...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        function togglePassword(fieldId) {
+            const field = document.getElementById(fieldId);
+            const button = field.nextElementSibling;
+            const icon = button.querySelector('i');
+            
+            if (field.type === 'password') {
+                field.type = 'text';
+                icon.className = 'fas fa-eye-slash';
+            } else {
+                field.type = 'password';
+                icon.className = 'fas fa-eye';
+            }
+        }
+
+        function testConfiguration() {
+            const formData = new FormData(document.getElementById('sshConfigForm'));
+            const data = Object.fromEntries(formData);
+            
+            const modal = new bootstrap.Modal(document.getElementById('testModal'));
+            modal.show();
+            
+            // Reset modal content
+            document.getElementById('testResult').innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Testing...</span>
+                    </div>
+                    <p class="mt-2">Testing connection...</p>
+                </div>
+            `;
+            
+            // Here you would normally test the connection with the form data
+            // For now, we'll simulate a test
+            setTimeout(() => {
+                document.getElementById('testResult').innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Test Simulation</strong><br>
+                        Connection testing will be available after saving the configuration.
+                    </div>
+                `;
+            }, 2000);
+        }
+
+        document.getElementById('sshConfigForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData);
+            data.is_active = document.getElementById('is_active').checked;
+            
+            const url = '{{ url_for("admin_ssh_config_edit", config_id=config.id) if config else url_for("admin_ssh_config_new") }}';
+            
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = '{{ url_for("admin_ssh_configs") }}';
+                } else {
+                    alert('Error: ' + (data.message || 'Unknown error occurred'));
+                }
+            })
+            .catch(error => {
+                alert('Error: ' + error.message);
+            });
+        });
+    </script>
+</body>
+</html>
