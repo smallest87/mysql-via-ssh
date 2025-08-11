@@ -34,14 +34,16 @@ def test_connection():
         
         # Test 2: Lihat daftar database
         result = mysql_ssh.execute_query("SHOW DATABASES")
-        if result:
+        if result and isinstance(result, list):
             logger.info("Daftar database:")
             for db in result:
                 logger.info(f"  - {db['Database']}")
+        else:
+            logger.info(f"Result type: {type(result)}, Value: {result}")
         
         # Test 3: Lihat daftar tabel (jika database sudah dipilih)
         result = mysql_ssh.execute_query("SHOW TABLES")
-        if result:
+        if result and isinstance(result, list):
             logger.info("Daftar tabel:")
             for table in result:
                 # Key bisa berbeda tergantung nama database

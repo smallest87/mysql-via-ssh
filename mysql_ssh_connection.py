@@ -82,7 +82,9 @@ class MySQLSSHConnection:
         try:
             with self.connection.cursor() as cursor:
                 cursor.execute(query, params)
-                if query.strip().upper().startswith('SELECT'):
+                # Check if query returns results (SELECT, SHOW, DESCRIBE, EXPLAIN, etc.)
+                query_type = query.strip().upper()
+                if any(query_type.startswith(cmd) for cmd in ['SELECT', 'SHOW', 'DESCRIBE', 'DESC', 'EXPLAIN']):
                     result = cursor.fetchall()
                     return result
                 else:
