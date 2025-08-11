@@ -237,6 +237,98 @@ class MySQLSSHFlaskApp:
             
             return redirect(url_for('index'))
         
+        # ========== ADMIN ROUTES ==========
+        @self.app.route('/admin/login', methods=['GET', 'POST'])
+        def admin_login():
+            """Admin login page"""
+            if request.method == 'POST':
+                username = request.form.get('username')
+                password = request.form.get('password')
+                
+                # Demo credentials (dalam produksi gunakan hash dan database)
+                if username == 'admin' and password == 'admin123':
+                    session['admin_logged_in'] = True
+                    session['admin_username'] = username
+                    session['admin_login_time'] = datetime.now().isoformat()
+                    flash('Login admin berhasil!', 'success')
+                    return redirect(url_for('admin_dashboard'))
+                else:
+                    flash('Username atau password salah!', 'error')
+                    return render_template('admin_login.html', error='Invalid credentials')
+            
+            # Check if already logged in
+            if session.get('admin_logged_in'):
+                return redirect(url_for('admin_dashboard'))
+                
+            return render_template('admin_login.html')
+        
+        @self.app.route('/admin/dashboard')
+        def admin_dashboard():
+            """Admin dashboard - requires login"""
+            if not session.get('admin_logged_in'):
+                flash('Silakan login sebagai admin terlebih dahulu.', 'warning')
+                return redirect(url_for('admin_login'))
+            
+            # Generate dummy statistics
+            stats = {
+                'active_connections': len(self.active_connections),
+                'total_queries': 247,  # Demo data
+                'uptime': '2d 14h',    # Demo data
+                'admin_sessions': 1
+            }
+            
+            # Generate dummy recent activities
+            recent_activities = [
+                {
+                    'time': '10:30:15',
+                    'action': 'Database Query',
+                    'user': 'Guest User',
+                    'status': 'Success',
+                    'status_class': 'success'
+                },
+                {
+                    'time': '10:25:42',
+                    'action': 'SSH Connection',
+                    'user': 'Guest User',
+                    'status': 'Connected',
+                    'status_class': 'info'
+                },
+                {
+                    'time': '10:22:18',
+                    'action': 'Admin Login',
+                    'user': session.get('admin_username', 'admin'),
+                    'status': 'Success',
+                    'status_class': 'success'
+                },
+                {
+                    'time': '10:15:33',
+                    'action': 'Database Query',
+                    'user': 'Guest User',
+                    'status': 'Error',
+                    'status_class': 'danger'
+                },
+                {
+                    'time': '10:12:07',
+                    'action': 'Export Data',
+                    'user': 'Guest User',
+                    'status': 'Completed',
+                    'status_class': 'success'
+                }
+            ]
+            
+            return render_template('admin_dashboard.html', 
+                                 stats=stats, 
+                                 recent_activities=recent_activities)
+        
+        @self.app.route('/admin/logout')
+        def admin_logout():
+            """Admin logout"""
+            session.pop('admin_logged_in', None)
+            session.pop('admin_username', None)
+            session.pop('admin_login_time', None)
+            flash('Logout admin berhasil.', 'info')
+            return redirect(url_for('index'))
+        
         @self.app.errorhandler(404)
         def not_found(error):
             return render_template('error.html', 

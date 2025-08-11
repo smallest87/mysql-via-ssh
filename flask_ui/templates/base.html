@@ -53,6 +53,14 @@
                 </ul>
                 
                 <ul class="navbar-nav">
+                    <!-- Admin Link -->
+                    <li class="nav-item">
+                        <a class="nav-link px-2" href="{{ url_for('admin_login') }}" title="Admin Dashboard">
+                            <i class="fas fa-user-shield"></i>
+                            <span class="d-lg-inline ms-1">Admin</span>
+                        </a>
+                    </li>
+                    
                     {% if session.current_connection %}
                     <li class="nav-item d-flex align-items-center">
                         <span class="badge bg-success me-2">
