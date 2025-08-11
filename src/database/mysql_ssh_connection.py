@@ -20,7 +20,30 @@ class MySQLSSHConnection:
         Args:
             ssh_config (dict): Konfigurasi SSH server
             mysql_config (dict): Konfigurasi MySQL database
+            
+        Raises:
+            TypeError: Jika ssh_config atau mysql_config bukan dict atau None
+            ValueError: Jika konfigurasi tidak lengkap
         """
+        # Validasi input
+        if ssh_config is None or mysql_config is None:
+            raise TypeError("ssh_config dan mysql_config tidak boleh None")
+            
+        if not isinstance(ssh_config, dict) or not isinstance(mysql_config, dict):
+            raise TypeError("ssh_config dan mysql_config harus berupa dictionary")
+            
+        # Validasi field yang wajib ada
+        required_ssh_fields = ['host', 'port', 'username']
+        required_mysql_fields = ['host', 'port', 'username', 'password', 'database']
+        
+        for field in required_ssh_fields:
+            if field not in ssh_config:
+                raise ValueError(f"Field '{field}' wajib ada di ssh_config")
+                
+        for field in required_mysql_fields:
+            if field not in mysql_config:
+                raise ValueError(f"Field '{field}' wajib ada di mysql_config")
+        
         self.ssh_config = ssh_config
         self.mysql_config = mysql_config
         self.tunnel = None

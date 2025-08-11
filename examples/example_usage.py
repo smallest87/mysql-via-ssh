@@ -2,8 +2,15 @@
 Contoh penggunaan MySQL SSH Connection
 """
 
+import sys
+import os
 import logging
-from mysql_ssh_connection import MySQLSSHConnection
+
+# Tambahkan path src ke Python path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'config'))
+
+from database.mysql_ssh_connection import MySQLSSHConnection
 from config import SSH_CONFIG, MYSQL_CONFIG, LOGGING_CONFIG
 
 # Setup logging
